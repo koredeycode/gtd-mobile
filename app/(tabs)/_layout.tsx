@@ -1,33 +1,50 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        screenOptions={{
+            headerShown: false,
+            tabBarStyle: {
+                backgroundColor: '#000000',
+                borderTopColor: '#333333',
+                height: 60,
+                paddingBottom: 10,
+            },
+            tabBarActiveTintColor: '#39FF14',
+            tabBarInactiveTintColor: '#888888',
+            tabBarShowLabel: false,
+        }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Tasks',
+          tabBarIcon: ({ color }) => <MaterialIcons name="grid-view" size={28} color={color} />,
+          tabBarLabel: 'Tasks',
+          tabBarShowLabel: true,
+          tabBarLabelStyle: { fontFamily: 'JetBrainsMono-Bold', fontSize: 10, marginBottom: 4 },
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="habits"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Habits',
+          tabBarIcon: ({ color }) => <MaterialIcons name="check-box" size={28} color={color} />,
+          tabBarLabel: 'Habits',
+          tabBarShowLabel: true,
+          tabBarLabelStyle: { fontFamily: 'JetBrainsMono-Bold', fontSize: 10, marginBottom: 4 },
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <MaterialIcons name="settings" size={28} color={color} />,
+          tabBarLabel: 'Settings',
+          tabBarShowLabel: true,
+          tabBarLabelStyle: { fontFamily: 'JetBrainsMono-Bold', fontSize: 10, marginBottom: 4 },
         }}
       />
     </Tabs>
