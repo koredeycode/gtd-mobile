@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { authService } from '../../services';
 
 export default function RegisterScreen() {
     const [loading, setLoading] = useState(false);
@@ -17,14 +18,27 @@ export default function RegisterScreen() {
     const [confirmPassword, setConfirmPassword] = useState('');
 
     const handleRegister = async () => {
-         setLoading(true);
-         // Simulate registration
-         setTimeout(async () => {
-             // User requested flow: Signup -> Login -> Onboarding
-             // So after register, go to login.
-             setLoading(false);
-             router.replace('/auth/login');
-         }, 1500);
+        if (password !== confirmPassword) {
+            Alert.alert('Error', 'Passwords do not match');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            await authService.register({
+                email,
+                password,
+                firstName,
+                lastName,
+            });
+            Alert.alert('Success', 'Account created successfully', [
+                { text: 'OK', onPress: () => router.replace('/auth/login') }
+            ]);
+        } catch (error) {
+            Alert.alert('Registration Failed', (error as Error).message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/Input';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { authService } from '../../services';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -13,26 +14,22 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
-        // Implement Mock Login
-        setLoading(true);
-        setTimeout(async () => {
-             // Flow: Login -> Onboarding (if not onboarded) -> Tabs
-             // But user says "Signup -> Login -> Onboarding".
-             // Assuming new user flow: Signup -> Login -> Onboarding.
-             
-             // Check if user has onboarded (usually false for new user)
-             // For strict flow enforcement as requested:
-             await SecureStore.setItemAsync('auth_token', 'mock_token');
-             setLoading(false);
-             
-             // Check onboarding status or valid flow
-             const onboarded = await SecureStore.getItemAsync('hasOnboarded');
-             if (onboarded) {
+        try {
+            setLoading(true);
+            await authService.login({ email, password });
+            
+            // Check onboarding status
+            const onboarded = await SecureStore.getItemAsync('hasOnboarded');
+            if (onboarded) {
                 router.replace('/(tabs)');
-             } else {
+            } else {
                 router.replace('/onboarding');
-             }
-        }, 1500);
+            }
+        } catch (error) {
+            Alert.alert('Login Failed', (error as Error).message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

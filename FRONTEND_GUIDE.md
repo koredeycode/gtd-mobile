@@ -15,6 +15,17 @@ The API uses JWT (JSON Web Tokens) for authentication.
 The app uses global, predefined categories.
 
 *   **Fetch**: On app startup (or after login), call `GET /categories`.
+*   **Response**:
+    ```json
+    [
+      {
+        "id": "c1b2a3e4-...",
+        "name": "Health & Fitness",
+        "color": "#FF5733"
+      },
+      ...
+    ]
+    ```
 *   **Store**: Save these categories locally (e.g., in a local SQLite DB or Redux/Context state). You will need the `id` of these categories when creating habits.
 
 ## 3. Offline-First Sync Engine
@@ -104,7 +115,8 @@ All habits are now simple "Done / Not Done" checks.
 ## 8. New Features Integration
 
 ### Profile Management
-*   **Update**: `PATCH /users/profile` with `{ firstName, lastName }`.
+*   **Get**: `GET /users/profile`. Returns `{ id, email, firstName, lastName }`.
+*   **Update**: `PATCH /users/profile` with `{ firstName, lastName }`. Returns updated user object.
 *   **Delete**: `DELETE /users/profile` with `{ password }`. Prompt user for password before calling this.
 
 ### Feedback
@@ -113,3 +125,65 @@ All habits are now simple "Done / Not Done" checks.
 ### Data Export
 *   **Request**: `POST /export` with `{ format: 'csv' | 'excel', range: 'week' | '1m' ... }`.
 *   **UI**: Show a "Export Data" button in settings. When clicked, show a modal to select format and range. After success, show "Export started. Check your email."
+
+### AI Habit Generation
+*   **Generate**: `POST /habits/generate`
+*   **Payload** (`GenerateHabitsDto`):
+    ```json
+    {
+      "goal": "Improve physical health",
+      "categories": ["Fitness", "Nutrition"]
+    }
+    ```
+*   **Response** (`GeneratedHabitsResponseDto`):
+    ```json
+    {
+      "categories": [
+        {
+          "name": "Fitness",
+          "habits": [
+            { "title": "Morning Jog" },
+            { "title": "Strength Training" }
+          ]
+        },
+        ...
+      ]
+    }
+    ```
+*   **UI Workflow**:
+    1.  Show a "Generate with AI" button.
+    2.  Collect "Goal" and "Categories" from user.
+    3.  Call `POST /habits/generate`.
+    4.  Display results to user for selection.
+    5.  Call `POST /habits/bulk` with selected items.
+
+### Bulk Create Habits
+*   **Create**: `POST /habits/bulk`
+*   **Payload** (`CreateBulkHabitsDto`):
+    ```json
+    {
+      "categories": [
+        {
+          "categoryId": "c1b2a3e4-...",
+          "habits": ["Morning Jog", "Drink Water"]
+        }
+      ]
+    }
+    ```
+*   **Response** (`HabitResponseDto[]`): Returns an array of created habit objects.
+    ```json
+    [
+      {
+        "id": "h1...",
+        "userId": "u1...",
+        "categoryId": "c1...",
+        "title": "Morning Jog",
+        "frequencyJson": { "type": "daily", "days": [...] },
+        "createdAt": "2023-12-07T10:00:00Z",
+        "updatedAt": "2023-12-07T10:00:00Z",
+        "deletedAt": null
+      },
+      ...
+    ]
+    ```
+

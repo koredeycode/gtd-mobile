@@ -1,22 +1,73 @@
-import { CATEGORIES, RESET_TIMES } from '@/components/onboarding/constants';
+import { RESET_TIMES } from '@/components/onboarding/constants';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
+import { database } from '@/db';
+import CategoryModel from '@/db/models/Category';
 import { cn } from '@/lib/utils';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Category, categoryService, habitService } from '../../services';
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(1);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [resetTime, setResetTime] = useState('midnight');
 
+  // Categories State
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+
   // Step 2 & 3 State
   const [goalInput, setGoalInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedHabits, setGeneratedHabits] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const data = await categoryService.getCategories();
+      setCategories(data);
+
+      if (database) {
+        await database.write(async () => {
+            if (!database) return;
+            const categoriesCollection = database.get<CategoryModel>('categories');
+            const existingCats = await categoriesCollection.query().fetch();
+            const existingIds = new Set(existingCats.map(c => c.id));
+            
+            const newCats = data.filter(c => !existingIds.has(c.id));
+            
+            if (newCats.length > 0) {
+                const batchOperations = newCats.map(cat => 
+                    categoriesCollection.prepareCreate(record => {
+                        record._raw.id = cat.id;
+                        record.name = cat.name;
+                        record.color = cat.color;
+                    })
+                );
+                await database.batch(...batchOperations);
+                console.log(`Saved ${newCats.length} categories to Local DB`);
+            } else {
+               console.log('Categories already up to date in Local DB');
+            }
+        });
+      } else {
+        console.warn('Skipping local DB save: Database is likely not initialized (NativeModules missing).');
+      }
+      
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+      Alert.alert('Error', 'Failed to load categories. Please check your connection.');
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
 
   const toggleCategory = (id: string) => {
     setSelectedCategories(prev => 
@@ -45,41 +96,39 @@ export default function OnboardingScreen() {
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => setStep(prev => prev > 1 ? prev - 1 : prev);
 
-  // Mock AI Generation
-  const generateHabits = () => {
+  const generateHabits = async () => {
       if (!goalInput.trim() && selectedCategories.length === 0) return;
       
       setIsGenerating(true);
-      
-      // Simulate AI delay
-      setTimeout(() => {
-          const habits = [];
-          // Simple mock logic based on categories
-          if (selectedCategories.includes('health')) {
-              habits.push({ id: 'h1', title: 'Morning Run', category: 'HEALTH' });
-              habits.push({ id: 'h2', title: 'Evening Stretch', category: 'HEALTH' });
-              habits.push({ id: 'h3', title: 'Drink Water', category: 'HEALTH' });
-          }
-           if (selectedCategories.includes('work')) {
-              habits.push({ id: 'w1', title: 'Deep Work Session', category: 'WORK' });
-              habits.push({ id: 'w2', title: 'Plan Tomorrow', category: 'WORK' });
-          }
-          if (selectedCategories.includes('mind')) {
-              habits.push({ id: 'm1', title: '10 min Meditation', category: 'MINDFULNESS' });
-              habits.push({ id: 'm2', title: 'Journaling', category: 'MINDFULNESS' });
-          }
-          if (selectedCategories.includes('learning')) {
-              habits.push({ id: 'l1', title: 'Read 10 pages', category: 'LEARNING' });
-          }
-          // Default if empty or other cats
-          if (habits.length === 0) {
-               habits.push({ id: 'd1', title: 'Plan Day', category: 'PRODUCTIVITY' });
-          }
+      try {
+          const response = await habitService.generateHabits({
+              goal: goalInput,
+              categories: selectedCategories,
+          });
+
+          // Flatten response to match local state structure
+          // Response: { categories: [ { name: 'Health', habits: [{ title: '...' }] } ] }
+          // Local State: [ { id: '...', title: '...', category: '...' } ]
+          
+          const habits: any[] = [];
+          
+          response.categories.forEach((cat: any) => {
+              cat.habits.forEach((habit: any, index: number) => {
+                  habits.push({
+                      id: `${cat.name}-${index}-${Date.now()}`, // Generate unique ID
+                      title: habit.title,
+                      category: cat.name.toUpperCase(),
+                  });
+              });
+          });
 
           setGeneratedHabits(habits);
+          setStep(3);
+      } catch (error) {
+          Alert.alert('Generation Failed', (error as Error).message);
+      } finally {
           setIsGenerating(false);
-          setStep(3); // Move to Step 3
-      }, 1500);
+      }
   };
 
   const removeHabit = (id: string) => {
@@ -98,9 +147,17 @@ export default function OnboardingScreen() {
             </Text>
         </View>
 
+        {isLoadingCategories ? (
+            <View className="flex-1 justify-center items-center">
+                <ActivityIndicator size="large" color="#39FF14" />
+            </View>
+        ) : (
         <ScrollView className="flex-1 space-y-2 pr-2" showsVerticalScrollIndicator={false}>
-            {CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
                 const isSelected = selectedCategories.includes(cat.id);
+                // Default icon if not returned by API or map appropriately
+                const iconName = 'label' as any; 
+
                 return (
                     <TouchableOpacity
                         key={cat.id}
@@ -111,13 +168,13 @@ export default function OnboardingScreen() {
                         )}
                     >
                         <MaterialIcons 
-                            name={cat.icon as any} 
+                            name={iconName} 
                             size={24} 
                             color={isSelected ? '#39FF14' : '#E0E0E0'} 
                             style={{ marginRight: 16 }}
                         />
                         <Text className="flex-1 text-base font-normal uppercase leading-normal text-[#E0E0E0] font-mono">
-                            {cat.label}
+                            {cat.name}
                         </Text>
                         <View className={cn(
                             "h-6 w-6 flex items-center justify-center",
@@ -129,6 +186,7 @@ export default function OnboardingScreen() {
                 );
             })}
         </ScrollView>
+        )}
 
         <View className="mt-6">
              <Button label="Next Step" onPress={nextStep} />
