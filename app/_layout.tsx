@@ -59,6 +59,7 @@ export default function RootLayout() {
         <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
         <Stack.Screen name="data/export" options={{ headerShown: false }} />
         <Stack.Screen name="habits/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="habits/manage" options={{ headerShown: false, presentation: 'modal' }} />
       </Stack>
       <StatusBar style="light" />
     </ThemeProvider>

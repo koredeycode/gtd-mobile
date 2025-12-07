@@ -37,7 +37,7 @@ function AccordionItem({ item, isOpen, onPress }: { item: typeof FAQS[0], isOpen
         <View>
             <TouchableOpacity 
                 onPress={onPress}
-                className="flex-row items-center justify-between p-4 bg-black"
+                className="flex-row items-center justify-between p-5 bg-black"
                 activeOpacity={0.7}
             >
                 <Text className="text-white text-base font-bold font-mono flex-1 mr-4">

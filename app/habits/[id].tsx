@@ -1,8 +1,8 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { CATEGORIES, HABITS, LOGS } from '@/constants/mockData';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Modal from 'react-native-modal';
@@ -12,8 +12,18 @@ export default function HabitDetailScreen() {
     const [period, setPeriod] = useState<'30D' | '6M' | '1Y'>('30D');
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedLog, setSelectedLog] = useState<any>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
 
-    const habit = useMemo(() => HABITS.find(h => h.id === id), [id]);
+    useFocusEffect(
+        useCallback(() => {
+            setRefreshKey(prev => prev + 1);
+        }, [])
+    );
+
+    const habit = useMemo(() => {
+        const _ = refreshKey;
+        return HABITS.find(h => h.id === id);
+    }, [id, refreshKey]);
     const category = useMemo(() => CATEGORIES.find(c => c.id === habit?.category_id), [habit]);
     
     // Get logs for this habit
@@ -235,7 +245,10 @@ export default function HabitDetailScreen() {
 
                 {/* Footer Edit Button */}
                 <View className="px-6">
-                    <TouchableOpacity className="border border-white h-14 items-center justify-center flex-row gap-2 active:bg-[#222]">
+                    <TouchableOpacity 
+                        onPress={() => router.push({ pathname: '/habits/manage', params: { id } })}
+                        className="border border-white h-14 items-center justify-center flex-row gap-2 active:bg-[#222]"
+                    >
                         <MaterialIcons name="edit" size={20} color="white" />
                         <Text className="text-white text-base font-bold uppercase tracking-widest font-jb-bold">
                             EDIT

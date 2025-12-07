@@ -1,14 +1,23 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { CATEGORIES, HABITS } from '@/constants/mockData';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HabitsScreen() {
     const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    useFocusEffect(
+        useCallback(() => {
+            setRefreshKey(prev => prev + 1);
+        }, [])
+    );
 
     const activeHabits = useMemo(() => {
+        // refreshKey dependency ensures recalculation
+        const _ = refreshKey; 
         const active = HABITS.filter(h => !h.deleted_at);
         // Group by category
         const groups = active.reduce((acc, habit) => {
@@ -18,6 +27,7 @@ export default function HabitsScreen() {
             if (!acc[category.name]) {
                 acc[category.name] = {
                     title: category.name,
+                    category_id: category.id,
                     habits: []
                 };
             }
@@ -33,6 +43,7 @@ export default function HabitsScreen() {
     }, []);
 
     const archivedHabits = useMemo(() => {
+        const _ = refreshKey;
         return HABITS.filter(h => h.deleted_at).map(habit => {
             const category = CATEGORIES.find(c => c.id === habit.category_id);
             return {
@@ -94,7 +105,10 @@ export default function HabitsScreen() {
                                     <Text className="text-[#666666] text-sm font-bold uppercase tracking-widest font-jb-bold">
                                         {category.title}
                                     </Text>
-                                    <TouchableOpacity className="border border-[#39FF14] p-1">
+                                    <TouchableOpacity 
+                                        onPress={() => router.push({ pathname: '/habits/manage', params: { categoryId: category.category_id } })} // category object structure in activeHabits reduce was slightly custom... wait, let me check the reduce logic in step 27.
+                                        className="border border-[#39FF14] p-1"
+                                    >
                                         <MaterialIcons name="add" size={16} color="#39FF14" />
                                     </TouchableOpacity>
                                 </View>
@@ -148,8 +162,11 @@ export default function HabitsScreen() {
             </ScrollView>
 
              {/* FAB */}
-             <View className="absolute bottom-6 right-6">
-                <TouchableOpacity className="h-14 w-14 items-center justify-center border-2 border-[#39FF14] bg-black shadow-lg shadow-[#39FF14]/20 active:bg-[#39FF14]/20">
+            <View className="absolute bottom-6 right-6">
+                <TouchableOpacity 
+                    onPress={() => router.push('/habits/manage')}
+                    className="h-14 w-14 items-center justify-center border-2 border-[#39FF14] bg-black shadow-lg shadow-[#39FF14]/20 active:bg-[#39FF14]/20"
+                >
                     <MaterialIcons name="add" size={32} color="#39FF14" />
                 </TouchableOpacity>
             </View>

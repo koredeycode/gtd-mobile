@@ -68,18 +68,18 @@ export default function ExportDataScreen() {
                 {/* Include Options */}
                 <Text className="text-[#666666] font-bold font-jb-bold text-xs uppercase mb-3 tracking-widest">INCLUDE</Text>
                 <View className="border border-[#333333] mb-12">
-                     <View className="flex-row items-center justify-between p-4 border-b border-[#333333] bg-black">
+                     {/* <View className="flex-row items-center justify-between p-4 border-b border-[#333333] bg-black">
                         <Text className="text-white font-mono text-base">Habit Data</Text>
                         <BrutalistSwitch value={includeHabits} onValueChange={setIncludeHabits} />
-                    </View>
+                    </View> */}
                     <View className="flex-row items-center justify-between p-4 border-b border-[#333333] bg-black">
                         <Text className="text-white font-mono text-base">Notes & Journals</Text>
                         <BrutalistSwitch value={includeNotes} onValueChange={setIncludeNotes} />
                     </View>
-                    <View className="flex-row items-center justify-between p-4 bg-black">
+                    {/* <View className="flex-row items-center justify-between p-4 bg-black">
                         <Text className="text-white font-mono text-base">Tags & Categories</Text>
                         <BrutalistSwitch value={includeTags} onValueChange={setIncludeTags} />
-                    </View>
+                    </View> */}
                 </View>
 
                 {/* Export Button */}
