@@ -4,13 +4,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import Modal from 'react-native-modal';
-
-const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function HabitDetailScreen() {
     const { id } = useLocalSearchParams();
-    const [period, setPeriod] = useState('30D');
+    const [period, setPeriod] = useState<'30D' | '6M' | '1Y'>('30D');
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedLog, setSelectedLog] = useState<any>(null);
 
@@ -22,51 +21,72 @@ export default function HabitDetailScreen() {
         return LOGS.filter(l => l.habit_id === id && l.value);
     }, [id]);
 
-    // Calculate stats
+    // Calculate Date Range Limit based on period
+    const rangeLimitDate = useMemo(() => {
+        const d = new Date();
+        if (period === '30D') d.setDate(d.getDate() - 30);
+        if (period === '6M') d.setMonth(d.getMonth() - 6);
+        if (period === '1Y') d.setFullYear(d.getFullYear() - 1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }, [period]);
+
+    // Calculate stats based on period
     const stats = useMemo(() => {
         if (!habit) return { streak: 0, completion: 0, total: 0 };
         
-        const totalDone = habitLogs.length;
-        // Simple completion rate based on last 30 days for now
-        // In real app, would be based on frequency
-        const completion = Math.round((habitLogs.filter(l => {
+        // Filter logs within range
+        const logsInRange = habitLogs.filter(l => {
             const d = new Date(l.date);
-            const now = new Date();
-            const diffTime = Math.abs(now.getTime() - d.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-            return diffDays <= 30;
-        }).length / 30) * 100);
+            return d >= rangeLimitDate;
+        });
+
+        const totalDone = logsInRange.length;
+        
+        // Estimate total days in range
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - rangeLimitDate.getTime());
+        const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+
+        // Completion
+        const completion = totalDays > 0 ? Math.round((totalDone / totalDays) * 100) : 0;
 
         return {
             streak: habit.streak || 0,
             completion: Math.min(completion, 100),
             total: totalDone
         };
-    }, [habit, habitLogs]);
+    }, [habit, habitLogs, rangeLimitDate]);
 
-    // Generate Calendar Data (Last 105 days = 15 weeks)
-    const calendarData = useMemo(() => {
-        const days = [];
+    // Format logs for Calendar markedDates
+    const markedDates = useMemo(() => {
+        const marked: any = {};
         const today = new Date();
-        // Start 104 days ago
-        for (let i = 104; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-            const log = habitLogs.find(l => l.date === dateStr);
-            
-            days.push({
-                date: dateStr,
-                status: log ? 1 : 2, // 1=Done, 2=Not Done
-                log: log || { date: dateStr, value: false } // Create dummy log for Not Done
-            });
-        }
-        return days;
-    }, [habitLogs]);
+        const maxDate = new Date().toISOString().split('T')[0];
+        const minDate = rangeLimitDate.toISOString().split('T')[0];
+
+        // Mark done days
+        habitLogs.forEach(l => {
+            if (l.date >= minDate && l.date <= maxDate) {
+                 marked[l.date] = { 
+                    selected: true, 
+                    marked: true, 
+                    selectedColor: '#39FF14', 
+                    dotColor: 'transparent',
+                    log: l // Store log for retrieval
+                };
+            }
+        });
+        
+        // Mark today if not done? Optional.
+        // We'll just rely on `onDayPress` logic to handle empty days.
+        return marked;
+    }, [habitLogs, rangeLimitDate]);
 
     const handleDayPress = (day: any) => {
-        // Allow clicking any day (Done or Not Done)
-        setSelectedLog(day.log);
+        const log = habitLogs.find(l => l.date === day.dateString);
+        // Create a temporary object for selectedLog even if no log exists (for Not Done)
+        setSelectedLog(log || { date: day.dateString, value: false });
         setModalVisible(true);
     };
 
@@ -89,9 +109,14 @@ export default function HabitDetailScreen() {
                 <TouchableOpacity onPress={() => router.back()}>
                    <MaterialIcons name="arrow-back-ios" size={24} color="white" />
                 </TouchableOpacity>
-                <Text className="text-white text-lg font-bold tracking-widest uppercase font-jb-bold">
-                    {habit.title}
-                </Text>
+                <View className="items-center">
+                    <Text className="text-white text-lg font-bold tracking-widest uppercase font-jb-bold">
+                        {habit.title}
+                    </Text>
+                    <Text className="text-[#888888] text-xs font-mono uppercase mt-1 tracking-widest">
+                        {category?.name || 'UNCATEGORIZED'}
+                    </Text>
+                </View>
                 <View className="w-6" /> 
             </View>
 
@@ -109,7 +134,7 @@ export default function HabitDetailScreen() {
                     
                     <View className="mb-6">
                          <Text className="text-[#888888] text-xs font-bold uppercase tracking-widest mb-1 font-jb-bold">
-                            COMPLETION (30D)
+                            COMPLETION ({period})
                         </Text>
                         <Text className="text-white text-3xl font-bold font-jb-bold">
                             {stats.completion}%
@@ -129,7 +154,7 @@ export default function HabitDetailScreen() {
                 {/* Period Selector */}
                 <View className="px-6 py-6">
                     <View className="flex-row border border-[#333333] h-12">
-                        {['7D', '30D', 'ALL'].map((p) => (
+                        {(['30D', '6M', '1Y'] as const).map((p) => (
                             <TouchableOpacity 
                                 key={p} 
                                 onPress={() => setPeriod(p)}
@@ -150,52 +175,58 @@ export default function HabitDetailScreen() {
                 {/* Calendar Section */}
                 <View className="px-6 mb-8">
                     <View className="border border-[#333333] p-4">
-                        <Text className="text-white text-sm font-bold uppercase tracking-widest mb-4 font-jb-bold">
-                            PROGRESS OVER TIME
-                        </Text>
+                        <View className="flex-row items-baseline justify-between mb-4">
+                             <Text className="text-white text-sm font-bold uppercase tracking-widest font-jb-bold">
+                                PROGRESS ({period})
+                            </Text>
+                            <Text className="text-[#888888] text-xs font-mono">
+                                    {rangeLimitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} 
+                                    {' - '} 
+                                    {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </Text>
+                        </View>
                         
-                        {/* Month Nav - Simplified to Current Month for Mock */}
-                        <View className="flex-row items-center justify-between mb-4 px-2">
-                             <MaterialIcons name="chevron-left" size={24} color="#888888" />
-                             <Text className="text-[#39FF14] font-mono font-bold uppercase tracking-widest">
-                                 LAST 15 WEEKS
-                             </Text>
-                             <MaterialIcons name="chevron-right" size={24} color="#888888" />
-                        </View>
-
-                        {/* Grid Header */}
-                        <View className="flex-row justify-between mb-2">
-                            {DAYS.map((d, i) => (
-                                <Text key={i} className="text-white font-mono text-center w-8 text-xs font-bold">
-                                    {d}
-                                </Text>
-                            ))}
-                        </View>
-
-                        {/* Grid Body */}
-                        <View className="flex-row flex-wrap justify-between gap-y-1">
-                             {calendarData.map((day, index) => (
-                                 <TouchableOpacity 
-                                    key={index}
-                                    onPress={() => handleDayPress(day)}
-                                    className={`w-8 h-8 mb-1 items-center justify-center ${
-                                        day.status === 1 ? 'bg-[#39FF14]' : 
-                                        'bg-[#222] border border-[#333]'
-                                    }`}
-                                 >
-                                    {/* Optional: Show day number for better context? Or just keep simple blocks */}
-                                 </TouchableOpacity>
-                             ))}
-                        </View>
+                        <Calendar 
+                            key={period} // Re-render when period changes
+                            markedDates={markedDates}
+                            onDayPress={handleDayPress}
+                            minDate={rangeLimitDate.toISOString().split('T')[0]}
+                            maxDate={new Date().toISOString().split('T')[0]}
+                            theme={{
+                                backgroundColor: '#000000',
+                                calendarBackground: '#000000',
+                                textSectionTitleColor: '#ffffff',
+                                selectedDayBackgroundColor: '#39FF14',
+                                selectedDayTextColor: '#000000',
+                                todayTextColor: '#39FF14',
+                                dayTextColor: '#ffffff',
+                                textDisabledColor: '#333333',
+                                dotColor: '#39FF14',
+                                selectedDotColor: '#ffffff',
+                                arrowColor: '#39FF14',
+                                monthTextColor: '#39FF14',
+                                indicatorColor: '#39FF14',
+                                textDayFontFamily: 'JetBrainsMono-Bold',
+                                textMonthFontFamily: 'JetBrainsMono-Bold',
+                                textDayHeaderFontFamily: 'JetBrainsMono-Bold',
+                                textDayFontWeight: '300',
+                                textMonthFontWeight: 'bold',
+                                textDayHeaderFontWeight: '300',
+                                textDayFontSize: 14,
+                                textMonthFontSize: 14,
+                                textDayHeaderFontSize: 12
+                            }}
+                            enableSwipeMonths={true}
+                        />
 
                          {/* Legend */}
                          <View className="flex-row items-center mt-6 gap-6 justify-start border-t border-[#333333] pt-4">
                              <View className="flex-row items-center gap-2">
-                                 <View className="w-4 h-4 bg-[#39FF14]" />
+                                 <View className="w-4 h-4 bg-[#39FF14] rounded-full" />
                                  <Text className="text-white text-xs font-bold uppercase tracking-wider font-jb-bold">DONE</Text>
                              </View>
                              <View className="flex-row items-center gap-2">
-                                 <View className="w-4 h-4 bg-[#222] border border-[#333]" />
+                                 <View className="w-4 h-4 bg-transparent border border-white rounded-full" />
                                  <Text className="text-white text-xs font-bold uppercase tracking-wider font-jb-bold">NOT DONE</Text>
                              </View>
                          </View>
