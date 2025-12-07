@@ -21,7 +21,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Tasks',
-          tabBarIcon: ({ color }) => <MaterialIcons name="grid-view" size={28} color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons name="today" size={28} color={color} />,
           tabBarLabel: 'Tasks',
           tabBarShowLabel: true,
           tabBarLabelStyle: { fontFamily: 'JetBrainsMono-Bold', fontSize: 10, marginBottom: 4 },
@@ -31,7 +31,7 @@ export default function TabLayout() {
         name="habits"
         options={{
           title: 'Habits',
-          tabBarIcon: ({ color }) => <MaterialIcons name="check-box" size={28} color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons name="check-circle" size={28} color={color} />,
           tabBarLabel: 'Habits',
           tabBarShowLabel: true,
           tabBarLabelStyle: { fontFamily: 'JetBrainsMono-Bold', fontSize: 10, marginBottom: 4 },

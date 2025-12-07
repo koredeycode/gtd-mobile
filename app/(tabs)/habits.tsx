@@ -1,50 +1,59 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { CATEGORIES, HABITS } from '@/constants/mockData';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-
-const ACTIVE_HABITS = [
-    {
-        title: 'MIND',
-        habits: [
-            { id: 1, name: 'Meditate Daily', streak: 7, color: '#FF007A' },
-            { id: 2, name: 'Journaling', streak: 3, color: '#FF007A' },
-        ]
-    },
-    {
-        title: 'BODY',
-        habits: [
-            { id: 3, name: 'Workout 3x/week', streak: 21, color: '#00E0FF' },
-            { id: 4, name: 'Drink 2L Water', streak: 88, color: '#00E0FF' },
-        ]
-    },
-    {
-        title: 'GROWTH',
-        habits: [
-            { id: 5, name: 'Read 10 pages', streak: 14, color: '#FF9900' },
-            { id: 6, name: 'Code for 1 hour', streak: 52, color: '#FF9900' },
-        ]
-    }
-];
-
-const ARCHIVED_HABITS = [
-    { id: 101, name: 'Finish Novel', color: '#9d174d' },
-    { id: 102, name: 'Learn Guitar', color: '#0e7490' },
-    { id: 103, name: 'Run a 5K', color: '#a16207' },
-    { id: 104, name: 'Save $1000', color: '#0e7490' },
-];
 
 export default function HabitsScreen() {
     const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
+    const activeHabits = useMemo(() => {
+        const active = HABITS.filter(h => !h.deleted_at);
+        // Group by category
+        const groups = active.reduce((acc, habit) => {
+            const category = CATEGORIES.find(c => c.id === habit.category_id);
+            if (!category) return acc;
+            
+            if (!acc[category.name]) {
+                acc[category.name] = {
+                    title: category.name,
+                    habits: []
+                };
+            }
+            acc[category.name].habits.push({
+                ...habit,
+                color: category.color,
+                name: habit.title // Map title to name for UI
+            });
+            return acc;
+        }, {} as Record<string, any>);
+
+        return Object.values(groups);
+    }, []);
+
+    const archivedHabits = useMemo(() => {
+        return HABITS.filter(h => h.deleted_at).map(habit => {
+            const category = CATEGORIES.find(c => c.id === habit.category_id);
+            return {
+                ...habit,
+                color: category?.color || '#666',
+                name: habit.title
+            };
+        });
+    }, []);
+
     return (
         <ScreenWrapper bg="bg-black">
             {/* Header - Matching Settings Screen Style */}
-             <View className="flex-row items-center justify-center pt-6 pb-4 border-b border-[#333333]">
+             <View className="flex-row items-center justify-between pt-6 pb-4 px-6 border-b border-[#333333]">
+                <TouchableOpacity onPress={() => router.back()} disabled={!router.canGoBack()}>
+                     <MaterialIcons name="arrow-back-ios" size={24} color={router.canGoBack() ? "white" : "transparent"} />
+                </TouchableOpacity>
                 <Text className="text-white text-lg font-bold tracking-widest uppercase font-jb-bold">
                     HABITS
                 </Text>
+                 <View className="w-6" />
             </View>
 
             {/* Tabs */}
@@ -78,7 +87,7 @@ export default function HabitsScreen() {
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }} className="flex-1">
                 {activeTab === 'active' ? (
                     <View className="p-6">
-                        {ACTIVE_HABITS.map((category) => (
+                        {activeHabits.map((category: any) => (
                             <View key={category.title} className="mb-8">
                                 {/* Category Header */}
                                 <View className="flex-row items-center justify-between mb-4">
@@ -92,7 +101,7 @@ export default function HabitsScreen() {
                                 
                                 {/* Habits List */}
                                 <View>
-                                    {category.habits.map((habit) => (
+                                    {category.habits.map((habit: any) => (
                                         <TouchableOpacity 
                                             key={habit.id}
                                             onPress={() => router.push({ pathname: '/habits/[id]', params: { id: habit.id } })}
@@ -118,7 +127,7 @@ export default function HabitsScreen() {
                     </View>
                 ) : (
                     <View className="p-6">
-                         {ARCHIVED_HABITS.map((habit) => (
+                         {archivedHabits.map((habit: any) => (
                             <View 
                                 key={habit.id}
                                 className="flex-row items-center justify-between py-4 border-b border-[#333333]"
@@ -140,8 +149,8 @@ export default function HabitsScreen() {
 
              {/* FAB */}
              <View className="absolute bottom-6 right-6">
-                <TouchableOpacity className="h-14 w-14 items-center justify-center bg-[#39FF14]">
-                    <MaterialIcons name="add" size={32} color="black" />
+                <TouchableOpacity className="h-14 w-14 items-center justify-center border-2 border-[#39FF14] bg-black shadow-lg shadow-[#39FF14]/20 active:bg-[#39FF14]/20">
+                    <MaterialIcons name="add" size={32} color="#39FF14" />
                 </TouchableOpacity>
             </View>
         </ScreenWrapper>

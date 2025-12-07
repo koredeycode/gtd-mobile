@@ -1,32 +1,86 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { CATEGORIES, HABITS, LOGS } from '@/constants/mockData';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Modal from 'react-native-modal';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-// Mock data generation for calendar
-const generateMockCalendar = () => {
-    const data = [];
-    for (let i = 0; i < 35; i++) { // 5 rows * 7 days
-        // Randomly assign status: 0=empty, 1=done, 2=missed
-        const rand = Math.random();
-        if (i > 31) data.push(0); // Future/Empty
-        else if (rand > 0.3) data.push(1); // Done
-        else data.push(2); // Missed
-    }
-    return data;
-};
-
 export default function HabitDetailScreen() {
     const { id } = useLocalSearchParams();
     const [period, setPeriod] = useState('30D');
     const [isModalVisible, setModalVisible] = useState(false);
-    const mockCalendarData = generateMockCalendar();
+    const [selectedLog, setSelectedLog] = useState<any>(null);
+
+    const habit = useMemo(() => HABITS.find(h => h.id === id), [id]);
+    const category = useMemo(() => CATEGORIES.find(c => c.id === habit?.category_id), [habit]);
+    
+    // Get logs for this habit
+    const habitLogs = useMemo(() => {
+        return LOGS.filter(l => l.habit_id === id && l.value);
+    }, [id]);
+
+    // Calculate stats
+    const stats = useMemo(() => {
+        if (!habit) return { streak: 0, completion: 0, total: 0 };
+        
+        const totalDone = habitLogs.length;
+        // Simple completion rate based on last 30 days for now
+        // In real app, would be based on frequency
+        const completion = Math.round((habitLogs.filter(l => {
+            const d = new Date(l.date);
+            const now = new Date();
+            const diffTime = Math.abs(now.getTime() - d.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            return diffDays <= 30;
+        }).length / 30) * 100);
+
+        return {
+            streak: habit.streak || 0,
+            completion: Math.min(completion, 100),
+            total: totalDone
+        };
+    }, [habit, habitLogs]);
+
+    // Generate Calendar Data (Last 105 days = 15 weeks)
+    const calendarData = useMemo(() => {
+        const days = [];
+        const today = new Date();
+        // Start 104 days ago
+        for (let i = 104; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            const log = habitLogs.find(l => l.date === dateStr);
+            
+            days.push({
+                date: dateStr,
+                status: log ? 1 : 2, // 1=Done, 2=Not Done
+                log: log || { date: dateStr, value: false } // Create dummy log for Not Done
+            });
+        }
+        return days;
+    }, [habitLogs]);
+
+    const handleDayPress = (day: any) => {
+        // Allow clicking any day (Done or Not Done)
+        setSelectedLog(day.log);
+        setModalVisible(true);
+    };
 
     const toggleModal = () => setModalVisible(!isModalVisible);
+
+    if (!habit) {
+        return (
+            <ScreenWrapper bg="bg-black">
+                 <View className="flex-1 items-center justify-center">
+                    <Text className="text-white">Habit not found</Text>
+                 </View>
+            </ScreenWrapper>
+        );
+    }
 
     return (
         <ScreenWrapper bg="bg-black">
@@ -36,7 +90,7 @@ export default function HabitDetailScreen() {
                    <MaterialIcons name="arrow-back-ios" size={24} color="white" />
                 </TouchableOpacity>
                 <Text className="text-white text-lg font-bold tracking-widest uppercase font-jb-bold">
-                    WORKOUT {/* dynamic in real app */}
+                    {habit.title}
                 </Text>
                 <View className="w-6" /> 
             </View>
@@ -49,16 +103,16 @@ export default function HabitDetailScreen() {
                             CURRENT STREAK
                         </Text>
                         <Text className="text-white text-3xl font-bold font-jb-bold">
-                            14 DAYS
+                            {stats.streak} DAYS
                         </Text>
                     </View>
                     
                     <View className="mb-6">
                          <Text className="text-[#888888] text-xs font-bold uppercase tracking-widest mb-1 font-jb-bold">
-                            COMPLETION
+                            COMPLETION (30D)
                         </Text>
                         <Text className="text-white text-3xl font-bold font-jb-bold">
-                            92%
+                            {stats.completion}%
                         </Text>
                     </View>
 
@@ -67,7 +121,7 @@ export default function HabitDetailScreen() {
                             TOTAL DONE
                         </Text>
                         <Text className="text-white text-3xl font-bold font-jb-bold">
-                            28
+                            {stats.total}
                         </Text>
                     </View>
                 </View>
@@ -100,11 +154,11 @@ export default function HabitDetailScreen() {
                             PROGRESS OVER TIME
                         </Text>
                         
-                        {/* Month Nav */}
+                        {/* Month Nav - Simplified to Current Month for Mock */}
                         <View className="flex-row items-center justify-between mb-4 px-2">
                              <MaterialIcons name="chevron-left" size={24} color="#888888" />
                              <Text className="text-[#39FF14] font-mono font-bold uppercase tracking-widest">
-                                 MAY 2024
+                                 LAST 15 WEEKS
                              </Text>
                              <MaterialIcons name="chevron-right" size={24} color="#888888" />
                         </View>
@@ -120,15 +174,17 @@ export default function HabitDetailScreen() {
 
                         {/* Grid Body */}
                         <View className="flex-row flex-wrap justify-between gap-y-1">
-                             {mockCalendarData.map((status, index) => (
+                             {calendarData.map((day, index) => (
                                  <TouchableOpacity 
                                     key={index}
-                                    onPress={toggleModal}
-                                    className={`w-8 h-8 mb-1 ${
-                                        status === 1 ? 'bg-[#39FF14]' : 
-                                        status === 2 ? 'bg-[#444444]' : 'bg-black border border-[#222]'
+                                    onPress={() => handleDayPress(day)}
+                                    className={`w-8 h-8 mb-1 items-center justify-center ${
+                                        day.status === 1 ? 'bg-[#39FF14]' : 
+                                        'bg-[#222] border border-[#333]'
                                     }`}
-                                 />
+                                 >
+                                    {/* Optional: Show day number for better context? Or just keep simple blocks */}
+                                 </TouchableOpacity>
                              ))}
                         </View>
 
@@ -139,7 +195,7 @@ export default function HabitDetailScreen() {
                                  <Text className="text-white text-xs font-bold uppercase tracking-wider font-jb-bold">DONE</Text>
                              </View>
                              <View className="flex-row items-center gap-2">
-                                 <View className="w-4 h-4 bg-[#444444]" />
+                                 <View className="w-4 h-4 bg-[#222] border border-[#333]" />
                                  <Text className="text-white text-xs font-bold uppercase tracking-wider font-jb-bold">NOT DONE</Text>
                              </View>
                          </View>
@@ -186,9 +242,13 @@ export default function HabitDetailScreen() {
                                 STATUS
                             </Text>
                             <View className="flex-row items-center space-x-2">
-                                <MaterialIcons name="check-circle" size={24} color="#39FF14" />
-                                <Text className="text-white text-xl font-bold font-jb-bold uppercase">
-                                    DONE
+                                <MaterialIcons 
+                                    name={selectedLog?.value ? "check-circle" : "cancel"} 
+                                    size={24} 
+                                    color={selectedLog?.value ? "#39FF14" : "#666"} 
+                                />
+                                <Text className={`text-xl font-bold font-jb-bold uppercase ${selectedLog?.value ? "text-white" : "text-[#666]"}`}>
+                                    {selectedLog?.value ? "DONE" : "NOT DONE"}
                                 </Text>
                             </View>
                         </View>
@@ -199,27 +259,38 @@ export default function HabitDetailScreen() {
                                 DATE
                             </Text>
                             <Text className="text-white text-2xl font-bold font-jb-bold uppercase">
-                                JUL 25
+                                {selectedLog?.date ? new Date(selectedLog.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                             </Text>
                         </View>
 
                         {/* Context */}
-                        <View className="mb-8">
-                             <Text className="text-[#888888] text-xs font-bold uppercase tracking-widest mb-2 font-jb-bold">
-                                TEXT CONTEXT
-                            </Text>
-                            <Text className="text-white text-base font-normal font-mono leading-6">
-                                Read the first three chapters of "The Brutalist Web".
-                            </Text>
-                        </View>
+                        {selectedLog?.text && (
+                            <View className="mb-8">
+                                <Text className="text-[#888888] text-xs font-bold uppercase tracking-widest mb-2 font-jb-bold">
+                                    TEXT CONTEXT
+                                </Text>
+                                <Text className="text-white text-base font-normal font-mono leading-6">
+                                    {selectedLog.text}
+                                </Text>
+                            </View>
+                        )}
+                        {!selectedLog?.text && selectedLog?.value && (
+                            <View className="mb-8">
+                                 <Text className="text-[#666] text-sm font-normal font-mono italic">
+                                    No notes for this session.
+                                </Text>
+                            </View>
+                        )}
 
-                        {/* Share Button */}
-                        <TouchableOpacity className="w-full bg-[#39FF14] h-14 flex-row items-center justify-center space-x-2">
-                            <MaterialIcons name="share" size={20} color="black" />
-                            <Text className="text-black font-bold font-jb-bold uppercase tracking-widest">
-                                SHARE ACHIEVEMENT
-                            </Text>
-                        </TouchableOpacity>
+                        {/* Share Button (Only enabled if done?) or make it neutral */}
+                         {selectedLog?.value && (
+                            <TouchableOpacity className="w-full bg-[#39FF14] h-14 flex-row items-center justify-center space-x-2">
+                                <MaterialIcons name="share" size={20} color="black" />
+                                <Text className="text-black font-bold font-jb-bold uppercase tracking-widest">
+                                    SHARE ACHIEVEMENT
+                                </Text>
+                            </TouchableOpacity>
+                         )}
                     </View>
                 </View>
             </Modal>
