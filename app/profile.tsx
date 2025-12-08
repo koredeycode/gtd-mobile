@@ -1,4 +1,5 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { HabitService } from '@/services/HabitService';
 import { UserProfile, userService } from '@/services/user.service';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -15,9 +16,16 @@ const STATS = [
 
 export default function ProfileScreen() {
     const [user, setUser] = useState<UserProfile | null>(null);
+    const [stats, setStats] = useState([
+        { label: 'Current Streak', value: '0' },
+        { label: 'Completions', value: '0' },
+        { label: 'Rate', value: '0%' },
+        { label: 'Longest Streak', value: '0' },
+    ]);
 
     useEffect(() => {
         loadUserProfile();
+        loadStats();
     }, []);
 
     const loadUserProfile = async () => {
@@ -28,6 +36,50 @@ export default function ProfileScreen() {
             console.error('Error loading profile:', error);
         }
     };
+
+    const loadStats = async () => {
+        try {
+             // In a real app, these might be pre-calculated in DB or backend
+             const allLogs = await HabitService.getAllLogs();
+             const allHabits = await HabitService.getAllHabits();
+             
+             // 1. Completions
+             const completions = allLogs.filter(l => l.value).length;
+
+             // 2. Rate (Last 30 days)
+             // Approx: (Completions in last 30 days) / (Active Habits * 30)
+             // Simple fallback: Global completion rate = logs / (habits * days since creation)?
+             // Let's stick to last 30 days simple math
+             const thirtyDaysAgo = new Date();
+             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+             const sub30Logs = allLogs.filter(l => new Date(l.date) >= thirtyDaysAgo && l.value);
+             const activeHabits = allHabits.filter(h => !h.is_archived);
+             
+             let rate = 0;
+             if (activeHabits.length > 0) {
+                 const possible = activeHabits.length * 30;
+                 rate = Math.round((sub30Logs.length / possible) * 100);
+             }
+
+             // 3. Streaks (Basic calc)
+             // We can just query the streak from memory if we had it, but here we might need to iterate
+             // For now, let's keep "Current Streak" as 0 or mock until we have a shared streak calc service
+             // Or... sum of current streaks?
+             // Let's settle for "Completions" and "Rate" being real.
+             // "Longest Streak" -> We can find the longest streak in logs?
+             // That requires complex logic. We'll leave streaks as placeholders or 0 for now to avoid perf hit on main thread.
+             
+             setStats([
+                { label: 'Current Streak', value: '-' }, // Complex to calc on fly
+                { label: 'Completions', value: completions.toString() },
+                { label: 'Rate', value: `${rate}%` },
+                { label: 'Longest Streak', value: '-' }, // Complex to calc on fly
+            ]);
+
+        } catch (e) {
+            console.error('Failed to load stats', e);
+        }
+    }
     
     const handleLogout = async () => {
         try {
@@ -76,7 +128,7 @@ export default function ProfileScreen() {
 
                 {/* Stats Grid */}
                 <View className="flex-row flex-wrap justify-between w-full mb-8">
-                    {STATS.map((stat, index) => (
+                    {stats.map((stat, index) => (
                         <View key={stat.label} className="w-[48%] h-32 border border-[#39FF14] p-4 justify-between mb-4">
                             <Text className="text-[#888888] text-xs font-mono">{stat.label}</Text>
                             <Text className="text-white text-4xl font-bold font-jb-bold">{stat.value}</Text>

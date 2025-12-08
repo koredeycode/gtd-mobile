@@ -24,6 +24,7 @@ const DashboardScreen = () => {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [logs, setLogs] = useState<Log[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [radarData, setRadarData] = useState<any>(RADAR_DATA);
 
     // Local state for modal
     const [isModalVisible, setModalVisible] = useState(false);
@@ -36,14 +37,52 @@ const DashboardScreen = () => {
 
     const fetchData = useCallback(async () => {
         try {
-            const [fetchedHabits, fetchedLogs, fetchedCategories] = await Promise.all([
+            // Get last 7 days range
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 6);
+            
+            const [fetchedHabits, fetchedLogs, fetchedCategories, weekLogs] = await Promise.all([
                 HabitService.getAllHabits(),
                 HabitService.getLogsByDate(today),
-                CategoryService.getAllCategories()
+                CategoryService.getAllCategories(),
+                HabitService.getLogsByDateRange(startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0])
             ]);
+            
             setHabits(fetchedHabits);
             setLogs(fetchedLogs);
             setCategories(fetchedCategories);
+
+            // Calculate Radar Data
+            const scores: number[] = [];
+            const labelsWithScores: string[] = [];
+
+            fetchedCategories.forEach(userCat => {
+                let score = 0;
+                
+                const catHabits = fetchedHabits.filter(h => h.category_id === userCat.id);
+                if (catHabits.length > 0) {
+                    const catLogs = weekLogs.filter(l => {
+                        const habit = fetchedHabits.find(h => h.id === l.habit_id);
+                        return habit?.category_id === userCat.id && l.value;
+                    });
+                    const maxLogs = catHabits.length * 7;
+                    score = Math.round((catLogs.length / maxLogs) * 100);
+                    score = Math.min(score, 100);
+                }
+                
+                scores.push(score);
+                labelsWithScores.push(`${userCat.name} ${score}`);
+            });
+
+            // If no categories, maybe default? 
+            // For now, let's allow empty if user has no cats (though onboarding creates them).
+
+            setRadarData({
+                labels: labelsWithScores,
+                data: scores
+            });
+
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
         }
@@ -133,16 +172,16 @@ const DashboardScreen = () => {
             </View>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-                {/* Radar Chart Section (Keep Mock for now) */}
+                {/* Radar Chart Section */}
                 <View className="px-6 mb-8">
                     <View className="border-2 border-primary p-4">
                         <Text className="text-white text-base font-bold font-mono mb-1">Life Radar</Text>
-                        <Text className="text-primary opacity-70 text-sm font-mono mb-4">Weekly</Text>
+                        <Text className="text-primary opacity-70 text-sm font-mono mb-4">Last 7 Days</Text>
                         
                         <View className="items-center justify-center py-6">
                             <BrutalistRadarChart 
-                                data={RADAR_DATA.data} 
-                                labels={RADAR_DATA.labels}
+                                data={radarData.data} 
+                                labels={radarData.labels}
                                 size={250}
                                 color={PRIMARY_COLOR}
                             />
@@ -166,10 +205,10 @@ const DashboardScreen = () => {
                             <TouchableOpacity 
                                 key={item.id} 
                                 onPress={() => openLogModal(item)}
-                                className="flex-row items-center justify-between bg-black px-6 py-4"
+                                className="flex-row gap-16 items-center justify-between bg-black px-6 py-4"
                             >
                                 <View className="flex-1 flex-row items-center gap-4">
-                                    <View style={{ backgroundColor: item.color }} className={`h-2 w-2`} />
+                                    <View style={{ backgroundColor: item.color }} className="h-3 w-3 rounded-full flex-shrink-0" />
                                     <Text className="text-white text-base font-mono" numberOfLines={1}>
                                         {item.text}
                                     </Text>

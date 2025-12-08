@@ -41,6 +41,16 @@ export const HabitService = {
     return await db.getAllAsync<Log>('SELECT * FROM logs WHERE date = ?', [date]);
   },
 
+  async getLogsByDateRange(startDate: string, endDate: string): Promise<Log[]> {
+    const db = await getDB();
+    return await db.getAllAsync<Log>('SELECT * FROM logs WHERE date >= ? AND date <= ?', [startDate, endDate]);
+  },
+
+  async getAllLogs(): Promise<Log[]> {
+    const db = await getDB();
+    return await db.getAllAsync<Log>('SELECT * FROM logs');
+  },
+
   async createLog(log: Omit<Log, 'id' | 'created_at' | 'updated_at'>): Promise<Log> {
     const db = await getDB();
     const id = Crypto.randomUUID();

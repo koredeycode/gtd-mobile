@@ -180,7 +180,7 @@ export default function HabitDetailScreen() {
                    <MaterialIcons name="arrow-back-ios" size={24} color="white" />
                 </TouchableOpacity>
                 <View className="items-center">
-                    <Text className="text-white text-lg font-bold tracking-widest uppercase font-jb-bold">
+                    <Text className="text-white text-lg font-bold tracking-widest uppercase font-jb-bold" numberOfLines={1}>
                         {habit.title}
                     </Text>
                     <Text className="text-[#888888] text-xs font-mono uppercase mt-1 tracking-widest">

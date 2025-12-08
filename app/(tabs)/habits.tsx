@@ -137,11 +137,15 @@ const HabitsScreen = () => {
                                         <TouchableOpacity 
                                             key={habit.id}
                                             onPress={() => router.push({ pathname: '/habits/[id]', params: { id: habit.id } })}
-                                            className="flex-row items-center justify-between py-4 border-b border-[#333333]"
+                                            className="flex-row gap-16 items-center justify-between py-4 border-b border-[#333333]"
                                         >
-                                            <View className="flex-row items-center gap-4">
-                                                <View style={{ backgroundColor: habit.color }} className="h-3 w-3 rounded-full" />
-                                                <Text className="text-white text-base font-normal font-mono">
+                                            <View className="flex-row items-center gap-4 flex-1">
+                                                <View style={{ backgroundColor: habit.color }} className="h-3 w-3 rounded-full flex-shrink-0" />
+                                                <Text 
+                                                    className="text-white text-base font-normal font-mono"
+                                                    numberOfLines={1}
+                                                    ellipsizeMode="tail"
+                                                >
                                                     {habit.name}
                                                 </Text>
                                             </View>

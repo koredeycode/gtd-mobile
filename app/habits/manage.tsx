@@ -21,7 +21,13 @@ export default function ManageHabitScreen() {
         try {
             const cats = await CategoryService.getAllCategories();
             setCategories(cats);
-            if (!selectedCategory && cats.length > 0) {
+            
+            // If we have a categoryId param, use it. 
+            // If not, and no selection yet, default to first.
+            // BUT, if we are editing (id exists), DO NOT default to first, wait for habit load.
+            if (categoryId && typeof categoryId === 'string') {
+                setSelectedCategory(categoryId);
+            } else if (!selectedCategory && cats.length > 0 && !isEditing) {
                  setSelectedCategory(cats[0].id);
             }
         } catch (e) {
@@ -41,15 +47,12 @@ export default function ManageHabitScreen() {
 
     const loadHabit = async (habitId: string) => {
         try {
-            // Since getHabitById isn't strictly exported as a single item method, 
-            // and we don't want to over-engineer right now, let's just find it 
-            // from getAllHabits or add a simple query.
-            // A simple query is better.
             const db = await require('@/db').getDB();
             const habit = await db.getFirstAsync('SELECT * FROM habits WHERE id = ?', [habitId]);
             if (habit) {
                 setExistingHabit(habit);
                 setName(habit.title);
+                // Ensure we respect the existing habit's category
                 setSelectedCategory(habit.category_id);
             }
         } catch (e) {
@@ -57,11 +60,12 @@ export default function ManageHabitScreen() {
         }
     };
 
+    // Update selection if categoryId param changes (and we aren't editing an existing one yet)
     useEffect(() => {
-        if (typeof categoryId === 'string' && !selectedCategory) {
+        if (typeof categoryId === 'string' && !isEditing) {
             setSelectedCategory(categoryId);
         }
-    }, [categoryId]);
+    }, [categoryId, isEditing]);
 
     const handleSave = async () => {
         if (!name.trim()) {
