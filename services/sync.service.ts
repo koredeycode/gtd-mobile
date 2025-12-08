@@ -1,5 +1,6 @@
 import { api } from '../api/client';
 import { getDB } from '../db';
+import { authService } from './auth.service';
 import { categoryService } from './category.service';
 
 export interface SyncPayload {
@@ -173,6 +174,8 @@ export const syncService = {
           console.log('No changes to sync.');
           return;
       }
+      
+      const userId = await authService.getUserId();
 
       // Map DB snake/camel casing if needed. DB is storing snake_case fields as per schemas. 
       // But we need to ensure payload matches API expectation.
@@ -184,22 +187,33 @@ export const syncService = {
           last_pulled_at: 0, // In a real bidirectional sync, we'd use the stored timestamp
           changes: {
               habits: {
-                  created: createdHabits.map(h => ({
-                      id: h.id,
-                      category_id: h.category_id,
-                      title: h.title,
-                      description: h.description,
-                      frequency_json: h.frequency, // DB stores stringified JSON in frequency column? Or simple string? 
-                      // Wait, createHabit passes `habit.frequency` directly.
-                      // If it's a string in DB, passing it as frequency_json.
-                      type: h.type,
-                      goal_id: h.goal_id,
-                      is_archived: h.is_archived,
-                      max_steak: 0,
-                      full_days: [],
-                      created_at: new Date(h.created_at).toISOString(),
-                      updated_at: new Date(h.updated_at).toISOString()
-                  })),
+                  created: createdHabits.map(h => {
+                      let frequency = h.frequency;
+                      try {
+                          if (typeof frequency === 'string') {
+                              frequency = JSON.parse(frequency);
+                          }
+                      } catch (e) {
+                          console.error('Failed to parse frequency JSON', e);
+                          // Fallback or keep as is, but API likely needs object
+                      }
+
+                      return {
+                        id: h.id,
+                        user_id: userId,
+                        category_id: h.category_id,
+                        title: h.title,
+                        description: h.description,
+                        frequency_json: frequency, 
+                        type: h.type,
+                        goal_id: h.goal_id,
+                        is_archived: h.is_archived,
+                        max_steak: 0,
+                        full_days: [],
+                        created_at: new Date(h.created_at).toISOString(),
+                        updated_at: new Date(h.updated_at).toISOString()
+                      };
+                  }),
                   updated: [],
                   deleted: []
               },

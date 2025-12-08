@@ -118,19 +118,6 @@ export default function HabitDetailScreen() {
         };
     }, [habit, logs, period]);
 
-    if (isLoading) {
-        return (
-            <ScreenWrapper bg="bg-black">
-                <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#39FF14" />
-                </View>
-            </ScreenWrapper>
-        );
-    }
-
-    if (!habit || !category) return null;
-
-
     // Format logs for Calendar markedDates
     const markedDates = useMemo(() => {
         const marked: any = {};
@@ -151,10 +138,20 @@ export default function HabitDetailScreen() {
             }
         });
         
-        // Mark today if not done? Optional.
-        // We'll just rely on `onDayPress` logic to handle empty days.
         return marked;
     }, [habitLogs, rangeLimitDate]);
+
+    if (isLoading) {
+        return (
+            <ScreenWrapper bg="bg-black">
+                <View className="flex-1 items-center justify-center">
+                    <ActivityIndicator size="large" color="#39FF14" />
+                </View>
+            </ScreenWrapper>
+        );
+    }
+
+    if (!habit || !category) return null;
 
     const handleDayPress = (day: any) => {
         const log = habitLogs.find(l => l.date === day.dateString);

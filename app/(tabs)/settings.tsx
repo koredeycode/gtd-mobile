@@ -100,7 +100,7 @@ export default function SettingsScreen() {
     ];
 
     return (
-        <ScreenWrapper>
+        <ScreenWrapper bg="bg-black">
             <View className="flex-row items-center justify-between px-6 py-4 border-b border-[#333333]">
                 <TouchableOpacity onPress={() => router.back()}>
                    <MaterialIcons name="arrow-back-ios" size={24} color="white" />
@@ -108,7 +108,7 @@ export default function SettingsScreen() {
                 <Text className="text-white text-lg font-bold font-jb-bold tracking-widest uppercase">
                     Settings
                 </Text>
-                <View className="w-6" /> {/* Placeholder for balance to center title */}
+                <View className="w-6" />
             </View>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
