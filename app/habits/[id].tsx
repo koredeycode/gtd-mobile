@@ -2,13 +2,14 @@ import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { getDB } from '@/db';
 import { Category, Habit, Log } from '@/db/types';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Modal from 'react-native-modal';
 
 export default function HabitDetailScreen() {
+    const router = useRouter();
     const { id } = useLocalSearchParams();
     const [period, setPeriod] = useState<'30D' | '6M' | '1Y'>('30D');
     const [isModalVisible, setModalVisible] = useState(false);
@@ -17,31 +18,45 @@ export default function HabitDetailScreen() {
     const [habit, setHabit] = useState<Habit | null>(null);
     const [category, setCategory] = useState<Category | null>(null);
     const [logs, setLogs] = useState<Log[]>([]);
-
-    const fetchData = useCallback(async () => {
-        try {
-            const db = await getDB();
-            const habitResult = await db.getAllAsync<Habit>('SELECT * FROM habits WHERE id = ?', [String(id)]);
-            if (habitResult.length > 0) {
-                setHabit(habitResult[0]);
-                const catResult = await db.getAllAsync<Category>('SELECT * FROM categories WHERE id = ?', [habitResult[0].category_id]);
-                if (catResult.length > 0) setCategory(catResult[0]);
-            } else {
-                setHabit(null);
-            }
-
-            const logsResult = await db.getAllAsync<Log>('SELECT * FROM logs WHERE habit_id = ?', [String(id)]);
-            setLogs(logsResult);
-        } catch (error) {
-            console.error('Error fetching habit details:', error);
-        }
-    }, [id]);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [isLoading, setIsLoading] = useState(true);
 
     useFocusEffect(
         useCallback(() => {
-            fetchData();
-        }, [fetchData])
+            setRefreshKey(prev => prev + 1);
+        }, [])
     );
+
+    const fetchData = useCallback(async () => {
+        try {
+            // Only show loading on initial fetch or full refresh, 
+            // but for better UX, let's show it briefly if we don't have data yet
+            const db = await getDB();
+            
+            const habitResult = await db.getAllAsync<Habit>('SELECT * FROM habits WHERE id = ?', [id as string]);
+            if (habitResult.length > 0) {
+                const fetchedHabit = habitResult[0];
+                setHabit(fetchedHabit);
+
+                const categoryResult = await db.getAllAsync<Category>('SELECT * FROM categories WHERE id = ?', [fetchedHabit.category_id]);
+                if (categoryResult.length > 0) {
+                    setCategory(categoryResult[0]);
+                }
+
+                const logsResult = await db.getAllAsync<Log>('SELECT * FROM logs WHERE habit_id = ? ORDER BY date DESC', [id as string]);
+                setLogs(logsResult);
+            }
+        } catch (error) {
+            console.error('Error fetching habit details:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [id, refreshKey]);
+
+    useEffect(() => {
+        setIsLoading(true);
+        fetchData();
+    }, [fetchData]);
     
     // Get logs for this habit (only done ones for stats/calendar? Original logic filtered l.value)
     // We'll keep compatibility by filtering here
@@ -65,46 +80,56 @@ export default function HabitDetailScreen() {
         
         // Calculate Streak
         let currentStreak = 0;
-        const today = new Date();
-        let checkDate = new Date(today);
-        let checkDateStr = checkDate.toISOString().split('T')[0];
+        const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        const doneDates = new Set(habitLogs.map(l => l.date));
+        // Check if today is done
+        const today = new Date().toISOString().split('T')[0];
+        const todayLog = sortedLogs.find(l => l.date === today && l.value);
         
-        // If not done today, check if done yesterday to sustain streak
-        if (!doneDates.has(checkDateStr)) {
+        if (todayLog) {
+            currentStreak = 1;
+        }
+
+        // Check previous days
+        let checkDate = new Date();
+        if (!todayLog) {
+             // If today is not done, check yesterday to start streak
              checkDate.setDate(checkDate.getDate() - 1);
-             checkDateStr = checkDate.toISOString().split('T')[0];
-        }
-        
-        while (doneDates.has(checkDateStr)) {
-            currentStreak++;
-            checkDate.setDate(checkDate.getDate() - 1);
-            checkDateStr = checkDate.toISOString().split('T')[0];
+        } else {
+             // If today is done, check yesterday to continue
+             checkDate.setDate(checkDate.getDate() - 1);
         }
 
-        // Filter logs within range
-        const logsInRange = habitLogs.filter(l => {
-            const d = new Date(l.date);
-            return d >= rangeLimitDate;
-        });
-
-        const totalDone = logsInRange.length;
-        
-        // Estimate total days in range
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - rangeLimitDate.getTime());
-        const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-
-        // Completion
-        const completion = totalDays > 0 ? Math.round((totalDone / totalDays) * 100) : 0;
+        while (true) {
+            const dateStr = checkDate.toISOString().split('T')[0];
+            const log = sortedLogs.find(l => l.date === dateStr && l.value);
+            if (log) {
+                currentStreak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+                break;
+            }
+        }
 
         return {
             streak: currentStreak,
-            completion: Math.min(completion, 100),
-            total: totalDone
+            completion: Math.round((logs.filter(l => l.value).length / 30) * 100), // Mock calculation
+            total: logs.length
         };
-    }, [habit, habitLogs, rangeLimitDate]);
+    }, [habit, logs, period]);
+
+    if (isLoading) {
+        return (
+            <ScreenWrapper bg="bg-black">
+                <View className="flex-1 items-center justify-center">
+                    <ActivityIndicator size="large" color="#39FF14" />
+                </View>
+            </ScreenWrapper>
+        );
+    }
+
+    if (!habit || !category) return null;
+
 
     // Format logs for Calendar markedDates
     const markedDates = useMemo(() => {

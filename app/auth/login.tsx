@@ -3,7 +3,6 @@ import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { authService } from '../../services';
@@ -18,13 +17,8 @@ export default function LoginScreen() {
             setLoading(true);
             await authService.login({ email, password });
             
-            // Check onboarding status
-            const onboarded = await SecureStore.getItemAsync('hasOnboarded');
-            if (onboarded) {
-                router.replace('/(tabs)');
-            } else {
-                router.replace('/onboarding');
-            }
+            // Navigate to sync screen to handle data fetching
+            router.replace('/auth/sync');
         } catch (error) {
             Alert.alert('Login Failed', (error as Error).message);
         } finally {
@@ -63,6 +57,7 @@ export default function LoginScreen() {
                     label="EXECUTE" 
                     onPress={handleLogin} 
                     disabled={loading}
+                    isLoading={loading}
                     className="mb-8"
                 />
 

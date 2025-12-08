@@ -1,10 +1,11 @@
 import { cn } from '@/lib/utils';
-import { Text, TouchableOpacity, TouchableOpacityProps } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, TouchableOpacityProps } from 'react-native';
 
 interface ButtonProps extends TouchableOpacityProps {
   label: string;
   variant?: 'primary' | 'secondary' | 'outline';
   textClassName?: string;
+  isLoading?: boolean;
 }
 
 export function Button({ 
@@ -12,6 +13,7 @@ export function Button({
   variant = 'primary', 
   className, 
   textClassName,
+  isLoading,
   ...props 
 }: ButtonProps) {
   const baseStyles = "h-14 w-full items-center justify-center rounded-none active:opacity-90";
@@ -30,12 +32,17 @@ export function Button({
 
   return (
     <TouchableOpacity 
-      className={cn(baseStyles, variants[variant], className)} 
+      className={cn(baseStyles, variants[variant], className, isLoading && 'opacity-80')} 
+      disabled={isLoading || props.disabled}
       {...props}
     >
-      <Text className={cn(textBaseStyles, textVariants[variant], textClassName)}>
-        {label}
-      </Text>
+      {isLoading ? (
+        <ActivityIndicator color={variant === 'primary' ? 'black' : 'white'} />
+      ) : (
+        <Text className={cn(textBaseStyles, textVariants[variant], textClassName)}>
+          {label}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }

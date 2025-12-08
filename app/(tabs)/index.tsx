@@ -15,6 +15,7 @@ const fullConfig = resolveConfig(tailwindConfig);
 const PRIMARY_COLOR = fullConfig.theme?.extend?.colors?.primary || '#39FF14';
 
 import { Category, Habit, Log } from '@/db/types';
+import { authService } from '@/services';
 import { CategoryService } from '@/services/CategoryService';
 import { HabitService } from '@/services/HabitService';
 
@@ -90,9 +91,17 @@ const DashboardScreen = () => {
                 if (existingLog) {
                     await HabitService.updateLog(existingLog.id, true, logNote.trim() || null);
                 } else {
+                    const userId = await authService.getUserId();
+                    if (!userId) {
+                        // Should strictly handle this, maybe redirect to login? 
+                        // For now, simple alert or return.
+                        console.error('No user ID found');
+                        return;
+                    }
+
                     await HabitService.createLog({
                         habit_id: selectedTask.id,
-                        user_id: 'u1', // TODO: Get real user ID
+                        user_id: userId,
                         date: today,
                         value: true,
                         text: logNote.trim() || null

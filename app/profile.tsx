@@ -37,6 +37,9 @@ export default function ProfileScreen() {
             // Clear local database
             const { clearDatabase } = await import('@/db');
             await clearDatabase();
+            
+            // Clear profile cache
+            await userService.clearProfileCache();
 
             router.replace('/auth/login');
         } catch (error) {

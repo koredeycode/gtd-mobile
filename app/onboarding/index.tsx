@@ -462,7 +462,14 @@ export default function OnboardingScreen() {
                       STEP {step} OF 4
                   </Text>
               </View>
-              <View className="w-10" />
+              
+              {step === 2 ? (
+                  <TouchableOpacity onPress={() => setStep(4)} className="absolute right-0 z-10 p-2">
+                      <Text className="text-[#39FF14] text-sm font-bold uppercase tracking-widest font-mono">
+                          SKIP
+                      </Text>
+                  </TouchableOpacity>
+              ) : <View className="w-10" />}
           </View>
           
           {step === 1 && renderStep1()}

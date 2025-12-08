@@ -41,3 +41,14 @@ export interface HabitResponseDto {
   updatedAt: string;
   deletedAt: string | null;
 }
+
+export interface LogResponseDto {
+  id: string;
+  habitId: string;
+  userId: string;
+  date: string;
+  value: boolean;
+  text: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

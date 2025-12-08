@@ -1,9 +1,10 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { BrutalistSwitch } from '@/components/ui/BrutalistSwitch';
+import { syncService } from '@/services';
 import { UserProfile, userService } from '@/services/user.service';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Modal from 'react-native-modal';
 
@@ -13,6 +14,7 @@ export default function SettingsScreen() {
     const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
     const [deletePassword, setDeletePassword] = useState('');
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
 
     useFocusEffect(
         useCallback(() => {
@@ -29,40 +31,47 @@ export default function SettingsScreen() {
         }
     };
 
-    const toggleSyncModal = () => setSyncModalVisible(!isSyncModalVisible);
+    const performSync = async () => {
+        setSyncStatus('syncing');
+        try {
+            await syncService.pushChanges();
+            setSyncStatus('success');
+            setTimeout(() => {
+                setSyncModalVisible(false);
+                setSyncStatus('idle');
+            }, 2000);
+        } catch (error) {
+            console.error('Sync failed:', error);
+            setSyncStatus('error');
+        }
+    };
+
+    const toggleSyncModal = () => {
+        if (!isSyncModalVisible) {
+             setSyncModalVisible(true);
+             performSync();
+        } else {
+             setSyncModalVisible(false);
+             setSyncStatus('idle'); // Reset on close
+        }
+    };
+
     const toggleDeleteModal = () => setDeleteModalVisible(!isDeleteModalVisible);
 
-    const SECTIONS = [
+    type SettingItem = 
+        | { id: string; type: 'custom'; component: React.ReactNode; icon?: never; label?: never; danger?: never; color?: never }
+        | { id: string; type: 'link' | 'toggle'; icon: string; label: string; danger?: boolean; color?: string; component?: never };
+
+    type Section = {
+        title: string;
+        data: SettingItem[];
+    };
+
+    const SECTIONS: Section[] = [
         {
             title: 'ACCOUNT',
             data: [
-                // Custom item structure for Profile Card
-                { 
-                    id: 'profile_card', 
-                    type: 'custom',
-                    component: (
-                        <TouchableOpacity 
-                            onPress={() => router.push('/profile')}
-                            className="flex-row items-center p-4 bg-black"
-                        >
-                            <View className="h-16 w-16 rounded-full bg-[#222] items-center justify-center border border-[#333] mr-4">
-                                <Text className="text-white text-2xl font-bold font-jb-bold">
-                                    {userProfile?.firstName?.[0] || userProfile?.email?.[0] || '?'}
-                                </Text>
-                            </View>
-                            <View className="flex-1">
-                                <Text className="text-white text-lg font-bold font-jb-bold mb-1">
-                                    {userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'Guest User'}
-                                </Text>
-                                <Text className="text-[#888] text-sm font-mono">
-                                    {userProfile?.email || 'Not logged in'}
-                                </Text>
-                            </View>
-                            <MaterialIcons name="chevron-right" size={24} color="#666" />
-                        </TouchableOpacity>
-                    )
-                },
-                { id: 'profile', icon: 'person', label: 'Edit Profile', type: 'link' },
+                { id: 'profile', icon: 'person', label: 'Profile', type: 'link' },
             ]
         },
         {
@@ -75,7 +84,7 @@ export default function SettingsScreen() {
         {
             title: 'DATA',
             data: [
-                { id: 'sync', icon: 'sync', label: 'Sync Data', type: 'link' },
+                { id: 'sync', icon: 'sync', label: 'Sync Data', type: 'link', color: '#39FF14' },
                 { id: 'export', icon: 'file-download', label: 'Export Data', type: 'link' },
                 { id: 'delete_account', icon: 'delete', label: 'Delete Account', type: 'link', danger: true },
             ]
@@ -91,31 +100,28 @@ export default function SettingsScreen() {
     ];
 
     return (
-        <ScreenWrapper bg="bg-black">
-            {/* Header */}
-            {/* Header */}
-            <View className="flex-row items-center justify-between px-6 pt-6 pb-4 border-b border-[#333333]">
+        <ScreenWrapper>
+            <View className="flex-row items-center justify-between px-6 py-4 border-b border-[#333333]">
                 <TouchableOpacity onPress={() => router.back()}>
                    <MaterialIcons name="arrow-back-ios" size={24} color="white" />
                 </TouchableOpacity>
-                <Text className="text-white text-lg font-bold tracking-widest uppercase font-jb-bold">
-                    SETTINGS
+                <Text className="text-white text-lg font-bold font-jb-bold tracking-widest uppercase">
+                    Settings
                 </Text>
-                <View className="w-6" /> 
+                <View className="w-6" /> {/* Placeholder for balance to center title */}
             </View>
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-                {SECTIONS.map((section, index) => (
-                    <View key={index} className="mt-8">
-                        <Text className="px-6 text-[#666666] font-bold font-jb-bold text-xs uppercase mb-4 tracking-widest">
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+                {SECTIONS.map((section, sectionIndex) => (
+                    <View key={section.title} className="mb-8 mt-6">
+                        <Text className="text-[#666] font-bold font-jb-bold px-6 mb-4 text-xs tracking-widest">
                             {section.title}
                         </Text>
-                        
-                        <View className="border border-[#333333] mx-6">
-                            {section.data.map((item: any, itemIndex) => {
+                        <View className="bg-black mx-4 border border-[#333333]">
+                            {section.data.map((item, itemIndex) => {
                                 if (item.type === 'custom') {
                                     return (
-                                        <View key={item.id} className={itemIndex !== section.data.length - 1 ? 'border-b border-[#333333]' : ''}>
+                                        <View key={item.id}>
                                             {item.component}
                                         </View>
                                     );
@@ -152,13 +158,14 @@ export default function SettingsScreen() {
                                 >
                                     <View className="flex-row items-center">
                                         <MaterialIcons 
-                                            name={item.icon} 
+                                            name={item.icon as any} 
                                             size={24} 
-                                            color={item.danger ? '#FF3B30' : '#666666'} 
+                                            color={item.color || (item.danger ? '#FF3B30' : 'white')} 
                                         />
-                                        <Text className={`ml-4 text-base font-normal font-mono ${
-                                            item.danger ? 'text-[#FF3B30]' : 'text-white'
-                                        }`}>
+                                        <Text 
+                                            className="ml-4 text-base font-normal font-mono"
+                                            style={{ color: item.color || (item.danger ? '#FF3B30' : 'white') }}
+                                        >
                                             {item.label}
                                         </Text>
                                     </View>
@@ -188,17 +195,36 @@ export default function SettingsScreen() {
                 animationOut="fadeOut"
                 useNativeDriver
             >
-                <View className="bg-black border-2 border-[#39FF14] p-8 items-center">
-                    <View className="mb-6 animate-spin">
-                        <MaterialIcons name="sync" size={64} color="#39FF14" />
-                    </View>
+                <View className={`bg-black border-2 p-8 items-center ${syncStatus === 'error' ? 'border-red-500' : 'border-[#39FF14]'}`}>
                     
-                    <Text className="text-[#39FF14] text-xl font-bold font-jb-bold uppercase tracking-widest mb-4">
-                        SYNCING DATA...
+                    {syncStatus === 'syncing' && (
+                        <View className="mb-6 animate-spin">
+                            <MaterialIcons name="sync" size={64} color="#39FF14" />
+                        </View>
+                    )}
+
+                    {syncStatus === 'success' && (
+                        <View className="mb-6">
+                            <MaterialIcons name="check-circle" size={64} color="#39FF14" />
+                        </View>
+                    )}
+
+                    {syncStatus === 'error' && (
+                        <View className="mb-6">
+                            <MaterialIcons name="error" size={64} color="#EF4444" />
+                        </View>
+                    )}
+                    
+                    <Text className={`text-xl font-bold font-jb-bold uppercase tracking-widest mb-4 ${syncStatus === 'error' ? 'text-red-500' : 'text-[#39FF14]'}`}>
+                        {syncStatus === 'syncing' ? 'SYNCING DATA...' : 
+                         syncStatus === 'success' ? 'SYNC COMPLETE' : 
+                         syncStatus === 'error' ? 'SYNC FAILED' : 'READY TO SYNC'}
                     </Text>
                     
                     <Text className="text-white text-center font-mono text-sm leading-6 mb-8">
-                        Please wait. Your data is being securely synced with the GSD cloud.
+                        {syncStatus === 'syncing' ? 'Please wait. Your data is being securely synced with the GSD cloud.' :
+                         syncStatus === 'success' ? 'Your local changes have been pushed to the cloud.' :
+                         syncStatus === 'error' ? 'There was an issue syncing your data. Please try again.' : ''}
                     </Text>
 
                     <TouchableOpacity 
@@ -206,7 +232,7 @@ export default function SettingsScreen() {
                         onPress={toggleSyncModal}
                     >
                         <Text className="text-white font-bold font-jb-bold uppercase tracking-widest">
-                            CANCEL SYNC
+                            {syncStatus === 'syncing' ? 'CANCEL' : 'CLOSE'}
                         </Text>
                     </TouchableOpacity>
                 </View>

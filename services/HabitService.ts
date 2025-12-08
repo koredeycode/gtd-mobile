@@ -15,8 +15,8 @@ export const HabitService = {
     const now = Date.now();
     
     await db.runAsync(
-      `INSERT INTO habits (id, category_id, title, description, frequency, type, goal_id, is_archived, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      `INSERT INTO habits (id, category_id, title, description, frequency, type, goal_id, is_archived, sync_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'created', ?, ?)`,
       [id, habit.category_id, habit.title, habit.description || null, habit.frequency, habit.type, habit.goal_id || null, now, now]
     );
 
@@ -47,8 +47,8 @@ export const HabitService = {
     const now = Date.now();
 
     await db.runAsync(
-      `INSERT INTO logs (id, habit_id, user_id, date, value, text, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO logs (id, habit_id, user_id, date, value, text, sync_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'created', ?, ?)`,
       [id, log.habit_id, log.user_id, log.date, log.value ? 1 : 0, log.text || null, now, now]
     );
 
@@ -65,7 +65,7 @@ export const HabitService = {
     const db = await getDB();
     const now = Date.now();
     await db.runAsync(
-      'UPDATE logs SET value = ?, text = ?, updated_at = ? WHERE id = ?',
+      'UPDATE logs SET value = ?, text = ?, updated_at = ?, sync_status = CASE WHEN sync_status = "created" THEN "created" ELSE "updated" END WHERE id = ?',
       [value ? 1 : 0, text, now, id]
     );
   },

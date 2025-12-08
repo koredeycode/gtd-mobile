@@ -61,6 +61,7 @@ export default function RegisterScreen() {
                     label="CREATE ACCOUNT" 
                     onPress={handleRegister} 
                     disabled={loading}
+                    isLoading={loading}
                     className="mb-8"
                 />
 

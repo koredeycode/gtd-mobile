@@ -1,48 +1,105 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
-import { CATEGORIES, HABITS } from '@/constants/mockData';
+import { Category } from '@/db/types';
+import { authService } from '@/services';
+import { CategoryService } from '@/services/CategoryService';
+import { HabitService } from '@/services/HabitService';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ManageHabitScreen() {
     const { id, categoryId } = useLocalSearchParams();
     const isEditing = !!id;
+    const [categories, setCategories] = useState<Category[]>([]);
+    
+    useEffect(() => {
+        loadCategories();
+    }, []);
 
-    const existingHabit = useMemo(() => {
-        if (!id) return null;
-        return HABITS.find(h => h.id === id);
+    const loadCategories = async () => {
+        try {
+            const cats = await CategoryService.getAllCategories();
+            setCategories(cats);
+            if (!selectedCategory && cats.length > 0) {
+                 setSelectedCategory(cats[0].id);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    const [name, setName] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<string>('');
+    const [existingHabit, setExistingHabit] = useState<any>(null);
+
+    useEffect(() => {
+        if (id) {
+            loadHabit(id as string);
+        }
     }, [id]);
 
-    const [name, setName] = useState(existingHabit?.title || '');
-    const [selectedCategory, setSelectedCategory] = useState(existingHabit?.category_id || (typeof categoryId === 'string' ? categoryId : CATEGORIES[0].id));
+    const loadHabit = async (habitId: string) => {
+        try {
+            // Since getHabitById isn't strictly exported as a single item method, 
+            // and we don't want to over-engineer right now, let's just find it 
+            // from getAllHabits or add a simple query.
+            // A simple query is better.
+            const db = await require('@/db').getDB();
+            const habit = await db.getFirstAsync('SELECT * FROM habits WHERE id = ?', [habitId]);
+            if (habit) {
+                setExistingHabit(habit);
+                setName(habit.title);
+                setSelectedCategory(habit.category_id);
+            }
+        } catch (e) {
+            console.error('Failed to load habit', e);
+        }
+    };
 
-    const handleSave = () => {
+    useEffect(() => {
+        if (typeof categoryId === 'string' && !selectedCategory) {
+            setSelectedCategory(categoryId);
+        }
+    }, [categoryId]);
+
+    const handleSave = async () => {
         if (!name.trim()) {
             Alert.alert('Error', 'Please enter a habit name');
             return;
         }
 
-        if (isEditing && existingHabit) {
-            // Update existing
-            existingHabit.title = name;
-            existingHabit.category_id = selectedCategory;
-            existingHabit.updated_at = new Date().toISOString();
-        } else {
-            // Create new
-            const newHabit = {
-                id: `h_${Date.now()}`,
-                user_id: 'u1', // Mock user
-                category_id: selectedCategory,
-                title: name,
-                frequency_json: { type: 'daily' }, // Default
-                streak: 0,
-                updated_at: new Date().toISOString(),
-            };
-            HABITS.push(newHabit);
-        }
+        try {
+             // ... existing save logic ...
+            if (isEditing) {
+                 // Implement Update
+                 const db = await require('@/db').getDB();
+                 const now = Date.now();
+                 await db.runAsync(
+                     'UPDATE habits SET title = ?, category_id = ?, updated_at = ?, sync_status = CASE WHEN sync_status = "created" THEN "created" ELSE "updated" END WHERE id = ?',
+                     [name, selectedCategory, now, id]
+                 );
+            } else {
+                const userId = await authService.getUserId();
+                if (!userId) {
+                    Alert.alert('Error', 'User login required');
+                    return;
+                }
 
-        router.back();
+                await HabitService.createHabit({
+                    category_id: selectedCategory || (categories[0]?.id),
+                    title: name,
+                    frequency: JSON.stringify({ type: 'daily' }),
+                    type: 'build',
+                    description: null,
+                    goal_id: null
+                });
+            }
+            router.back();
+        } catch (error) {
+             console.error(error);
+             Alert.alert('Error', 'Failed to save habit');
+        }
     };
 
     const handleDelete = () => {
@@ -54,20 +111,22 @@ export default function ManageHabitScreen() {
                 { 
                     text: 'Delete', 
                     style: 'destructive', 
-                    onPress: () => {
-                        if (existingHabit) {
-                            // Soft delete logic matching existing mock data handling
-                            // @ts-ignore
-                            existingHabit.deleted_at = new Date().toISOString();
-                            // If we needed hard delete:
-                            // const index = HABITS.findIndex(h => h.id === id);
-                            // if (index > -1) HABITS.splice(index, 1);
+                    onPress: async () => {
+                        try {
+                             if (id) {
+                                 const db = await require('@/db').getDB();
+                                 const now = Date.now();
+                                 // Soft delete
+                                 await db.runAsync(
+                                     'UPDATE habits SET is_archived = 1, updated_at = ?, sync_status = CASE WHEN sync_status = "created" THEN "created" ELSE "updated" END WHERE id = ?',
+                                     [now, id]
+                                 );
+                             }
+                             router.navigate('/(tabs)/habits');
+                        } catch (e) {
+                            console.error(e);
+                            Alert.alert('Error', 'Failed to delete');
                         }
-                        // Navigate back twice (to list) or just back? 
-                        // If we are coming from Detail > Edit > Delete, we probably want to go back to List.
-                        // router.dismissAll() might do too much.
-                        // Let's try navigating to the habits tab directly or go back twice.
-                        router.navigate('/(tabs)/habits');
                     }
                 }
             ]
@@ -109,7 +168,7 @@ export default function ManageHabitScreen() {
                 <View className="mb-8">
                     <Text className="text-[#666666] font-bold font-jb-bold text-xs uppercase mb-3 tracking-widest">CATEGORY</Text>
                     <View className="flex-row flex-wrap gap-3">
-                        {CATEGORIES.map(cat => {
+                        {categories.map(cat => {
                             const isSelected = selectedCategory === cat.id;
                             return (
                                 <TouchableOpacity

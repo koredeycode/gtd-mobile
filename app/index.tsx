@@ -3,29 +3,26 @@ import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { Image, Text, View } from 'react-native';
 
-// Mock function to check auth state - replace with actual logic later
+import { authService } from '@/services/auth.service';
+
 const checkAuthState = async () => {
     try {
-        // SIMULATING LOGOUT for testing purposes
-        await SecureStore.deleteItemAsync('hasOnboarded');
-        await SecureStore.deleteItemAsync('auth_token');
-
         // Check if onboarding is complete
         const onboarded = await SecureStore.getItemAsync('hasOnboarded');
-        const token = await SecureStore.getItemAsync('auth_token');
+        const token = await authService.getToken();
 
         // Simulate a small delay for splash effect
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         if (!onboarded) {
             return '/onboarding';
         }
         
-        if (!token) {
-            return '/auth/register';
+        if (token) {
+            return '/(tabs)';
         }
 
-        return '/(tabs)';
+        return '/auth/register';
     } catch (error) {
         console.error('Error checking auth state:', error);
         return '/onboarding'; // Default fallback
