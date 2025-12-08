@@ -60,18 +60,22 @@ export const HabitService = {
     const id = Crypto.randomUUID();
     const now = Date.now();
 
+    if (!log.habit_id || !log.user_id || !log.date) {
+        throw new Error(`Invalid log data: Missing required fields. habit_id=${log.habit_id}, user_id=${log.user_id}, date=${log.date}`);
+    }
+
     const newLog = {
         id,
         habit_id: log.habit_id,
         user_id: log.user_id,
         date: log.date,
-        value: log.value,
+        value: log.value === true, // Ensure strictly boolean
         text: log.text || null,
         sync_status: 'created',
         created_at: now,
         updated_at: now,
     };
-
+    
     await db.insert(schema.logs).values(newLog);
 
     return newLog as unknown as Log;
@@ -80,11 +84,14 @@ export const HabitService = {
   async updateLog(id: string, value: boolean, text: string | null): Promise<void> {
     const db = await getDB();
     const now = Date.now();
+    console.log('Attempting to update log:', id, value, text);
     
+    if (!id) throw new Error('Cannot update log without ID');
+
     await db.update(schema.logs)
       .set({ 
-        value: value, // Boolean is handled by mode: 'boolean' in schema
-        text: text, 
+        value: value === true, // Ensure strictly boolean
+        text: text || null, // Ensure null if undefined/empty string passed as undefined
         updated_at: now, 
         sync_status: sql`CASE WHEN sync_status = 'created' THEN 'created' ELSE 'updated' END`
       })
@@ -93,6 +100,8 @@ export const HabitService = {
 
   async deleteLog(id: string): Promise<void> {
     const db = await getDB();
+    console.log('Attempting to delete log:', id);
+    if (!id) throw new Error('Cannot delete log without ID');
     await db.delete(schema.logs).where(eq(schema.logs.id, id));
   }
 };

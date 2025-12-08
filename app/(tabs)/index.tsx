@@ -159,6 +159,21 @@ const DashboardScreen = () => {
         }
     };
 
+    const handleNavigate = (direction: 'prev' | 'next') => {
+        if (!selectedTask) return;
+        const currentIndex = sortedTasks.findIndex(t => t.id === selectedTask.id);
+        if (currentIndex === -1) return;
+
+        let newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+        
+        // Loop navigation or stop? User didn't specify, but "next habit to log" implies flow.
+        // Let's stop at ends for now to avoid confusion.
+        if (newIndex < 0) newIndex = sortedTasks.length - 1; // Cycle
+        if (newIndex >= sortedTasks.length) newIndex = 0; // Cycle
+
+        openLogModal(sortedTasks[newIndex]);
+    };
+
     return (
         <ScreenWrapper bg="bg-background">
             {/* Header */}
@@ -252,22 +267,35 @@ const DashboardScreen = () => {
                 useNativeDriver
                 style={{ margin: 0, justifyContent: 'center', alignItems: 'center' }}
             >
-                <View className="bg-black w-[90%] border border-[#333] p-6 pb-8">
-                     <View className="items-center mb-8 relative">
-                         {/* Close Button Top Right */}
-                        <TouchableOpacity 
-                            onPress={() => setModalVisible(false)}
-                            className="absolute -top-2 -right-2 p-2"
-                        >
-                            <MaterialIcons name="close" size={24} color="#666" />
-                        </TouchableOpacity>
+                <View className="bg-black w-[90%] border border-[#333] p-6 pb-8 relative">
+                     {/* Close Button Top Right */}
+                     <TouchableOpacity 
+                         onPress={() => setModalVisible(false)}
+                         className="absolute -top-3 -right-3 h-10 w-10 items-center justify-center border border-[#333] bg-black z-50"
+                     >
+                         <MaterialIcons name="close" size={20} color="#666" />
+                     </TouchableOpacity>
 
-                        <Text className="text-white text-2xl font-bold font-jb-bold text-center mb-1">
-                             {selectedTask?.text}
-                        </Text>
-                        <Text className="text-[#888] text-xs font-mono text-center uppercase tracking-widest">
-                             Goal: {selectedTask?.categoryName || 'General'}
-                        </Text>
+                     <View className="items-center mb-6">
+                        {/* Header Navigation */}
+                        <View className="flex-row items-center justify-between w-full mb-2">
+                             <TouchableOpacity onPress={() => handleNavigate('prev')} className="p-2">
+                                 <MaterialIcons name="chevron-left" size={32} color="#666" />
+                             </TouchableOpacity>
+                             
+                             <View className="items-center flex-1">
+                                 <Text className="text-white text-2xl font-bold font-jb-bold text-center mb-1" numberOfLines={1}>
+                                      {selectedTask?.text}
+                                 </Text>
+                                 <Text className="text-[#888] text-xs font-mono text-center uppercase tracking-widest">
+                                      {selectedTask?.categoryName || 'General'}
+                                 </Text>
+                             </View>
+
+                             <TouchableOpacity onPress={() => handleNavigate('next')} className="p-2">
+                                 <MaterialIcons name="chevron-right" size={32} color="#666" />
+                             </TouchableOpacity>
+                        </View>
                      </View>
 
                      {/* Toggle */}
@@ -297,12 +325,12 @@ const DashboardScreen = () => {
                          />
                      </View>
 
-                     {/* Save Button */}
+                     {/* Save Button - Always Active */}
                      <TouchableOpacity 
                         onPress={handleSaveLog}
-                        className={`w-full h-14 items-center justify-center active:opacity-90 ${isDone ? 'bg-[#39FF14]' : 'bg-[#222]'}`}
+                        className="w-full h-14 items-center justify-center bg-[#39FF14] active:opacity-90"
                     >
-                         <Text className={`font-bold font-jb-bold uppercase tracking-widest text-lg ${isDone ? 'text-black' : 'text-[#666]'}`}>
+                         <Text className="font-bold font-jb-bold uppercase tracking-widest text-lg text-black">
                              SAVE LOG
                          </Text>
                      </TouchableOpacity>
