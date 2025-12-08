@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { api } from '../api/client';
 import { getDB } from '../db';
 import * as schema from '../db/schema';
@@ -261,16 +261,29 @@ export const syncService = {
       console.log('Pushing changes:', JSON.stringify(payload, null, 2));
       const response = await this.pushData(payload);
 
-      // 4. Update local status on success
-      const updateToSynced = async (table: any, ids: string[], idColumn: any) => {
-          if (ids.length === 0) return;
-          await db.update(table)
-            .set({ sync_status: 'synced' })
-            .where(inArray(idColumn, ids));
+      // 4. Update local status on success using Optimistic Locking
+      // We only mark as 'synced' if the updated_at hasn't changed since we read it.
+      const updateToSynced = async (table: any, items: any[]) => {
+          if (items.length === 0) return;
+          
+          const db = await getDB();
+          
+          // We process updates in parallel for performance, but for massive sets maybe batching is better.
+          // Given this is a personal app, Promise.all is likely fine.
+          await Promise.all(items.map(async (item) => {
+             await db.update(table)
+                .set({ sync_status: 'synced' })
+                .where(
+                    and(
+                        eq(table.id, item.id),
+                        eq(table.updated_at, item.updated_at)
+                    )
+                );
+          }));
       };
 
-      await updateToSynced(schema.habits, createdHabits.map(h => h.id), schema.habits.id);
-      await updateToSynced(schema.logs, [...createdLogs, ...updatedLogs].map(l => l.id), schema.logs.id);
+      await updateToSynced(schema.habits, createdHabits);
+      await updateToSynced(schema.logs, [...createdLogs, ...updatedLogs]);
       
       console.log('Sync push successful.');
       

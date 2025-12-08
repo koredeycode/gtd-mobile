@@ -6,18 +6,26 @@ export const dbName = 'gtd.db';
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 let sqliteDbInstance: SQLite.SQLiteDatabase | null = null;
+let dbPromise: Promise<ReturnType<typeof drizzle>> | null = null;
 
 export const getDB = async () => {
   if (dbInstance) {
     return dbInstance;
   }
   
-  if (!sqliteDbInstance) {
-      sqliteDbInstance = await SQLite.openDatabaseAsync(dbName);
+  if (dbPromise) {
+      return dbPromise;
   }
-  
-  dbInstance = drizzle(sqliteDbInstance, { schema });
-  return dbInstance;
+
+  dbPromise = (async () => {
+    if (!sqliteDbInstance) {
+        sqliteDbInstance = await SQLite.openDatabaseAsync(dbName);
+    }
+    dbInstance = drizzle(sqliteDbInstance, { schema });
+    return dbInstance;
+  })();
+
+  return dbPromise;
 };
 
 export const initDatabase = async () => {
