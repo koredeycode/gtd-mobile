@@ -1,11 +1,14 @@
+import { asc, eq } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { getDB } from '../db';
+import * as schema from '../db/schema';
 import { Category } from '../db/types';
 
 export const CategoryService = {
   async getAllCategories(): Promise<Category[]> {
     const db = await getDB();
-    return await db.getAllAsync<Category>('SELECT * FROM categories WHERE is_archived = 0 ORDER BY name ASC');
+    const result = await db.select().from(schema.categories).where(eq(schema.categories.is_archived, false)).orderBy(asc(schema.categories.name));
+    return result;
   },
 
   async createCategory(category: Omit<Category, 'id' | 'created_at' | 'updated_at' | 'is_archived'> & { id?: string }): Promise<Category> {
@@ -13,25 +16,18 @@ export const CategoryService = {
     const id = category.id || Crypto.randomUUID();
     const now = Date.now();
 
-    await db.runAsync(
-      `INSERT INTO categories (id, name, color, icon, is_archived, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 0, ?, ?)`,
-      [
-        id, 
-        category.name || '', 
-        category.color || '#000000', 
-        category.icon || 'label', 
-        now, 
-        now
-      ]
-    );
-
-    return {
+    const newCategory = {
       id,
-      ...category,
+      name: category.name || '',
+      color: category.color || '#000000',
+      icon: category.icon || 'label',
       is_archived: false,
       created_at: now,
       updated_at: now
     };
+
+    await db.insert(schema.categories).values(newCategory);
+
+    return newCategory;
   }
 };

@@ -1,7 +1,7 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { getDB } from '@/db';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import * as SQLite from 'expo-sqlite';
 import React, { useCallback, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
@@ -12,7 +12,9 @@ const DebugDBScreen = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const db = await getDB();
+      // Use raw SQLite connection for debug monitor since we need dynamic table queries
+      // and generic getAllAsync which Drizzle doesn't expose directly on the generic instance.
+      const db = await SQLite.openDatabaseAsync('gtd.db');
       const result = await db.getAllAsync(`SELECT * FROM ${selectedTable} LIMIT 50`);
       setData(result);
     } catch (error) {

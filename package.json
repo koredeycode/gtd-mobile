@@ -17,6 +17,7 @@
     "@react-navigation/native": "^7.1.8",
     "@types/tailwindcss": "^3.0.11",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.0",
     "expo": "~54.0.27",
     "expo-constants": "~18.0.11",
     "expo-crypto": "~15.0.8",
@@ -53,6 +54,7 @@
     "@babel/plugin-proposal-decorators": "^7.28.0",
     "@types/react": "~19.1.0",
     "babel-preset-expo": "^54.0.8",
+    "drizzle-kit": "^0.31.8",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"

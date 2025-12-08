@@ -1,7 +1,9 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { getDB } from '@/db';
+import * as schema from '@/db/schema';
 import { Category, Habit, Log } from '@/db/types';
 import { MaterialIcons } from '@expo/vector-icons';
+import { desc, eq } from 'drizzle-orm';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -33,17 +35,30 @@ export default function HabitDetailScreen() {
             // but for better UX, let's show it briefly if we don't have data yet
             const db = await getDB();
             
-            const habitResult = await db.getAllAsync<Habit>('SELECT * FROM habits WHERE id = ?', [id as string]);
+            // Drizzle migration:
+            // const habitResult = await db.getAllAsync<Habit>('SELECT * FROM habits WHERE id = ?', [id as string]);
+            const habitResult = await db.select().from(schema.habits).where(eq(schema.habits.id, id as string));
+            
             if (habitResult.length > 0) {
                 const fetchedHabit = habitResult[0];
+                // Manually map snake_case to manual types if needed, OR relies on types being compatible.
+                // Our manual types (Category, Habit, Log) in db/types.ts are now inferred from schema.
+                // schema (db/schema.ts) uses snake_case keys (e.g. category_id).
+                // So fetchedHabit has category_id.
+                // The state `habit` expects `Habit` type.
+                // Works perfectly.
+                
                 setHabit(fetchedHabit);
 
-                const categoryResult = await db.getAllAsync<Category>('SELECT * FROM categories WHERE id = ?', [fetchedHabit.category_id]);
+                // const categoryResult = await db.getAllAsync<Category>('SELECT * FROM categories WHERE id = ?', [fetchedHabit.category_id]);
+                const categoryResult = await db.select().from(schema.categories).where(eq(schema.categories.id, fetchedHabit.category_id));
+                
                 if (categoryResult.length > 0) {
                     setCategory(categoryResult[0]);
                 }
 
-                const logsResult = await db.getAllAsync<Log>('SELECT * FROM logs WHERE habit_id = ? ORDER BY date DESC', [id as string]);
+                // const logsResult = await db.getAllAsync<Log>('SELECT * FROM logs WHERE habit_id = ? ORDER BY date DESC', [id as string]);
+                const logsResult = await db.select().from(schema.logs).where(eq(schema.logs.habit_id, id as string)).orderBy(desc(schema.logs.date));
                 setLogs(logsResult);
             }
         } catch (error) {

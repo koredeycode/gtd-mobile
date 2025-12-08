@@ -1,5 +1,7 @@
+import { eq, inArray } from 'drizzle-orm';
 import { api } from '../api/client';
 import { getDB } from '../db';
+import * as schema from '../db/schema';
 import { authService } from './auth.service';
 import { categoryService } from './category.service';
 
@@ -43,18 +45,30 @@ export const syncService = {
   async syncCategories(): Promise<void> {
       const db = await getDB();
       const categories = await categoryService.getCategories();
+      
       for (const cat of categories) {
-          await db.runAsync(
-              `INSERT OR REPLACE INTO categories (id, name, color, icon, is_archived, created_at, updated_at)
-               VALUES (?, ?, ?, 'label', 0, ?, ?)`,
-              [
-                  cat.id, 
-                  cat.name, 
-                  cat.color, 
-                  new Date(cat.createdAt || Date.now()).getTime(),
-                  new Date(cat.updatedAt || Date.now()).getTime()
-              ]
-          );
+          const now = Date.now();
+          const createdAt = cat.createdAt ? new Date(cat.createdAt).getTime() : now;
+          const updatedAt = cat.updatedAt ? new Date(cat.updatedAt).getTime() : now;
+          
+          await db.insert(schema.categories).values({
+              id: cat.id,
+              name: cat.name,
+              color: cat.color,
+              icon: 'label',
+              is_archived: false,
+              created_at: createdAt,
+              updated_at: updatedAt
+          }).onConflictDoUpdate({
+              target: schema.categories.id,
+              set: {
+                  name: cat.name,
+                  color: cat.color,
+                  icon: 'label',
+                  is_archived: false,
+                  updated_at: updatedAt
+              }
+          });
       }
   },
 
@@ -80,6 +94,7 @@ export const syncService = {
            for (const habit of habitsToSave) {
                // Handle potential camelCase vs snake_case differences
                const categoryId = habit.category_id || habit.categoryId;
+               // snake_case schema expects category_id, so we are good if we map correctly.
                const frequencyJson = habit.frequency_json || habit.frequencyJson;
                const createdAt = habit.created_at || habit.createdAt;
                const updatedAt = habit.updated_at || habit.updatedAt;
@@ -88,23 +103,25 @@ export const syncService = {
                    console.error('Missing category_id for habit:', habit);
                    continue; // Skip if mandatory field is missing
                }
+               
+               const habitData = {
+                   id: habit.id,
+                   category_id: categoryId,
+                   title: habit.title,
+                   description: habit.description || null,
+                   frequency: typeof frequencyJson === 'string' ? frequencyJson : JSON.stringify(frequencyJson),
+                   type: habit.type || 'build',
+                   goal_id: habit.goal_id || habit.goalId || null,
+                   is_archived: habit.is_archived ? true : false, // ensure boolean
+                   sync_status: 'synced', // Coming from server, so it's synced
+                   created_at: new Date(createdAt || Date.now()).getTime(),
+                   updated_at: new Date(updatedAt || Date.now()).getTime()
+               };
 
-               await db.runAsync(
-                  `INSERT OR REPLACE INTO habits (id, category_id, title, description, frequency, type, goal_id, is_archived, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                   [
-                       habit.id,
-                       categoryId,
-                       habit.title,
-                       habit.description || null,
-                       typeof frequencyJson === 'string' ? frequencyJson : JSON.stringify(frequencyJson), 
-                       habit.type || 'build', 
-                       habit.goal_id || habit.goalId || null,
-                       habit.is_archived || 0,
-                       new Date(createdAt || Date.now()).getTime(),
-                       new Date(updatedAt || Date.now()).getTime()
-                   ]
-               );
+               await db.insert(schema.habits).values(habitData).onConflictDoUpdate({
+                   target: schema.habits.id,
+                   set: habitData
+               });
            }
       }
 
@@ -122,33 +139,31 @@ export const syncService = {
                     continue;
                }
 
-               await db.runAsync(
-                  `INSERT OR REPLACE INTO logs (id, habit_id, user_id, date, value, text, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                   [
-                       log.id,
-                       habitId,
-                       userId,
-                       log.date,
-                       log.value ? 1 : 0,
-                       log.text || null,
-                       new Date(createdAt || Date.now()).getTime(),
-                       new Date(updatedAt || Date.now()).getTime()
-                   ]
-               );
+               const logData = {
+                   id: log.id,
+                   habit_id: habitId,
+                   user_id: userId,
+                   date: log.date,
+                   value: log.value ? true : false,
+                   text: log.text || null,
+                   sync_status: 'synced',
+                   created_at: new Date(createdAt || Date.now()).getTime(),
+                   updated_at: new Date(updatedAt || Date.now()).getTime()
+               };
+
+               await db.insert(schema.logs).values(logData).onConflictDoUpdate({
+                   target: schema.logs.id,
+                   set: logData
+               });
           }
       }
 
       // Handle deletions
       if (changes.habits.deleted.length > 0) {
-          for (const id of changes.habits.deleted) {
-              await db.runAsync('DELETE FROM habits WHERE id = ?', [id]);
-          }
+          await db.delete(schema.habits).where(inArray(schema.habits.id, changes.habits.deleted));
       }
       if (changes.logs.deleted.length > 0) {
-          for (const id of changes.logs.deleted) {
-              await db.runAsync('DELETE FROM logs WHERE id = ?', [id]);
-          }
+          await db.delete(schema.logs).where(inArray(schema.logs.id, changes.logs.deleted));
       }
 
       // Store new timestamp?
@@ -164,10 +179,10 @@ export const syncService = {
       const db = await getDB();
       
       // 1. Gather pending changes
-      const createdHabits = await db.getAllAsync<any>('SELECT * FROM habits WHERE sync_status = "created"');
-      // const updatedHabits = await db.getAllAsync<any>('SELECT * FROM habits WHERE sync_status = "updated"'); // Not fully implemented in UI yet
-      const createdLogs = await db.getAllAsync<any>('SELECT * FROM logs WHERE sync_status = "created"');
-      const updatedLogs = await db.getAllAsync<any>('SELECT * FROM logs WHERE sync_status = "updated"');
+      const createdHabits = await db.select().from(schema.habits).where(eq(schema.habits.sync_status, 'created'));
+      // const updatedHabits = await db.select().from(schema.habits).where(eq(schema.habits.syncStatus, 'updated'));
+      const createdLogs = await db.select().from(schema.logs).where(eq(schema.logs.sync_status, 'created'));
+      const updatedLogs = await db.select().from(schema.logs).where(eq(schema.logs.sync_status, 'updated'));
 
       // 2. Construct Payload
       if (createdHabits.length === 0 && createdLogs.length === 0 && updatedLogs.length === 0) {
@@ -176,15 +191,13 @@ export const syncService = {
       }
       
       const userId = await authService.getUserId();
+      if (!userId) {
+          console.error('Cannot push changes: No user ID found');
+          return;
+      }
 
-      // Map DB snake/camel casing if needed. DB is storing snake_case fields as per schemas. 
-      // But we need to ensure payload matches API expectation.
-      // API expects: 
-      // habits: { created: [...], updated: [...], deleted: [] }
-      // logs: { created: [...], updated: [...], deleted: [] }
-      
       const payload: SyncPayload = {
-          last_pulled_at: 0, // In a real bidirectional sync, we'd use the stored timestamp
+          last_pulled_at: 0, 
           changes: {
               habits: {
                   created: createdHabits.map(h => {
@@ -195,7 +208,6 @@ export const syncService = {
                           }
                       } catch (e) {
                           console.error('Failed to parse frequency JSON', e);
-                          // Fallback or keep as is, but API likely needs object
                       }
 
                       return {
@@ -214,7 +226,7 @@ export const syncService = {
                         updated_at: new Date(h.updated_at).toISOString()
                       };
                   }),
-                  updated: [],
+                  updated: [], // Not implemented yet
                   deleted: []
               },
               logs: {
@@ -223,7 +235,7 @@ export const syncService = {
                       habit_id: l.habit_id,
                       user_id: l.user_id,
                       date: l.date,
-                      value: l.value === 1,
+                      value: l.value,
                       text: l.text,
                       created_at: new Date(l.created_at).toISOString(),
                       updated_at: new Date(l.updated_at).toISOString()
@@ -233,7 +245,7 @@ export const syncService = {
                       habit_id: l.habit_id,
                       user_id: l.user_id,
                       date: l.date,
-                      value: l.value === 1,
+                      value: l.value,
                       text: l.text,
                       created_at: new Date(l.created_at).toISOString(),
                       updated_at: new Date(l.updated_at).toISOString()
@@ -248,20 +260,15 @@ export const syncService = {
       const response = await this.syncData(payload);
 
       // 4. Update local status on success
-      // We assume if API returns success, all were saved. 
-      // Ideally API returns list of synced IDs, but we'll optimistic update for now.
-      
-      const updateToSynced = async (table: string, ids: string[]) => {
+      const updateToSynced = async (table: any, ids: string[], idColumn: any) => {
           if (ids.length === 0) return;
-          const placeholders = ids.map(() => '?').join(',');
-          await db.runAsync(
-              `UPDATE ${table} SET sync_status = "synced" WHERE id IN (${placeholders})`,
-              ids
-          );
+          await db.update(table)
+            .set({ sync_status: 'synced' })
+            .where(inArray(idColumn, ids));
       };
 
-      await updateToSynced('habits', createdHabits.map(h => h.id));
-      await updateToSynced('logs', [...createdLogs, ...updatedLogs].map(l => l.id));
+      await updateToSynced(schema.habits, createdHabits.map(h => h.id), schema.habits.id);
+      await updateToSynced(schema.logs, [...createdLogs, ...updatedLogs].map(l => l.id), schema.logs.id);
       
       console.log('Sync push successful.');
       

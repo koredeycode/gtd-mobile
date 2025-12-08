@@ -1,33 +1,11 @@
-export interface Category {
-  id: string;
-  name: string;
-  color: string;
-  icon: string;
-  is_archived: boolean;
-  created_at: number;
-  updated_at: number;
-}
+import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import * as schema from './schema';
 
-export interface Habit {
-  id: string;
-  category_id: string;
-  title: string;
-  description: string | null;
-  frequency: string;
-  type: string;
-  goal_id: string | null;
-  is_archived: boolean;
-  created_at: number;
-  updated_at: number;
-}
+export type Category = InferSelectModel<typeof schema.categories>;
+export type NewCategory = InferInsertModel<typeof schema.categories>;
 
-export interface Log {
-  id: string;
-  habit_id: string;
-  user_id: string;
-  date: string;
-  value: boolean;
-  text: string | null;
-  created_at: number;
-  updated_at: number;
-}
+export type Habit = InferSelectModel<typeof schema.habits>;
+export type NewHabit = InferInsertModel<typeof schema.habits>;
+
+export type Log = InferSelectModel<typeof schema.logs>;
+export type NewLog = InferInsertModel<typeof schema.logs>;
