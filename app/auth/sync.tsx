@@ -22,12 +22,18 @@ export default function SyncScreen() {
             
             // Step 1: Sync Categories
             setStatus('Syncing categories...');
-            setProgress(0.3);
+            setProgress(0.2);
             await syncService.syncCategories();
             
-            // Step 2: Sync User Data
+            // Step 2: Push any local changes (e.g. if re-installing or clearing data but some local state persists)
+            // It's good practice to ensure we push before pulling
+            setStatus('Pushing local changes...');
+            setProgress(0.4);
+            await syncService.pushChanges();
+
+            // Step 3: Sync User Data (Pull)
             setStatus('Syncing your habits and logs...');
-            setProgress(0.6);
+            setProgress(0.7);
             const result = await syncService.syncUserData();
             
             setStatus(result.hasData ? 'Data synced' : 'Sync complete');

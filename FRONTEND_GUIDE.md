@@ -43,22 +43,30 @@ Implement a sync function that runs periodically (e.g., every minute) or on app 
     *   Maintain a `last_pulled_at` timestamp (default to 0).
     *   Track local changes that haven't been pushed yet (created, updated, deleted items).
 
-2.  **Push & Pull (POST /api/v1/sync)**:
-    *   Construct the payload:
-        ```json
-        {
-          "last_pulled_at": <timestamp>,
-          "changes": {
-            "habits": { "created": [...], "updated": [...], "deleted": [...] },
-            "logs": { "created": [...], "updated": [...], "deleted": [...] }
-          }
-        }
-        ```
-    *   **Send**: POST to `/api/v1/sync`.
-    *   **Process Response**:
-        *   **Apply Changes**: Insert/Update/Delete items from the response into your local DB.
-        *   **Update Timestamp**: Update `last_pulled_at` with the `timestamp` from the response.
-        *   **Clear Queue**: Mark the pushed local changes as "synced".
+2.  **Push & Pull**:
+    *   **Push**:
+        *   Endpoint: `POST /api/v1/sync/push`
+        *   Payload:
+            ```json
+            {
+              "changes": {
+                "habits": { "created": [...], "updated": [...], "deleted": [...] },
+                "logs": { "created": [...], "updated": [...], "deleted": [...] }
+              }
+            }
+            ```
+        *   Mark pushed items as "synced" upon success.
+    *   **Pull**:
+        *   Endpoint: `POST /api/v1/sync/pull`
+        *   Payload:
+            ```json
+            {
+              "last_pulled_at": <timestamp>
+            }
+            ```
+        *   **Process Response**:
+            *   Apply changes from response (created, updated, deleted) to local DB.
+            *   Update `last_pulled_at` timestamp.
 
 ## 4. Analytics (Radar Chart)
 *   **Fetch**: Call `GET /analytics/radar?range=week` (or `1m`, `3m`, etc.).

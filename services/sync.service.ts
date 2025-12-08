@@ -5,8 +5,7 @@ import * as schema from '../db/schema';
 import { authService } from './auth.service';
 import { categoryService } from './category.service';
 
-export interface SyncPayload {
-  last_pulled_at: number;
+export interface PushPayload {
   changes: {
     habits: {
       created: any[];
@@ -19,6 +18,10 @@ export interface SyncPayload {
       deleted: string[];
     };
   };
+}
+
+export interface PullPayload {
+  last_pulled_at: number;
 }
 
 export interface SyncResponse {
@@ -38,8 +41,12 @@ export interface SyncResponse {
 }
 
 export const syncService = {
-  async syncData(payload: SyncPayload): Promise<SyncResponse> {
-    return await api.post<SyncResponse>('/api/v1/sync', payload);
+  async pushData(payload: PushPayload): Promise<SyncResponse> {
+    return await api.post<SyncResponse>('/api/v1/sync/push', payload);
+  },
+
+  async pullData(payload: PullPayload): Promise<SyncResponse> {
+    return await api.post<SyncResponse>('/api/v1/sync/pull', payload);
   },
 
   async syncCategories(): Promise<void> {
@@ -76,12 +83,8 @@ export const syncService = {
       const db = await getDB();
       
       // Sync Habits and Logs (Pull from 0)
-      const syncResponse = await this.syncData({
+      const syncResponse = await this.pullData({
           last_pulled_at: 0, // Pull everything
-          changes: {
-              habits: { created: [], updated: [], deleted: [] },
-              logs: { created: [], updated: [], deleted: [] }
-          }
       });
 
       console.dir(syncResponse, { depth: null });
@@ -196,8 +199,7 @@ export const syncService = {
           return;
       }
 
-      const payload: SyncPayload = {
-          last_pulled_at: 0, 
+      const payload: PushPayload = {
           changes: {
               habits: {
                   created: createdHabits.map(h => {
@@ -257,7 +259,7 @@ export const syncService = {
 
       // 3. Push to API
       console.log('Pushing changes:', JSON.stringify(payload, null, 2));
-      const response = await this.syncData(payload);
+      const response = await this.pushData(payload);
 
       // 4. Update local status on success
       const updateToSynced = async (table: any, ids: string[], idColumn: any) => {

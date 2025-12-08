@@ -34,7 +34,11 @@ export default function SettingsScreen() {
     const performSync = async () => {
         setSyncStatus('syncing');
         try {
+            // Push changes first
             await syncService.pushChanges();
+            // Then pull latest data
+            await syncService.syncUserData();
+            
             setSyncStatus('success');
             setTimeout(() => {
                 setSyncModalVisible(false);
