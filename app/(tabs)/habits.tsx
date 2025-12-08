@@ -1,58 +1,73 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { CATEGORIES, HABITS } from '@/constants/mockData';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-export default function HabitsScreen() {
+import { Category, Habit } from '@/db/types';
+import { CategoryService } from '@/services/CategoryService';
+import { HabitService } from '@/services/HabitService';
+
+const HabitsScreen = () => {
+    const [habits, setHabits] = useState<Habit[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
-    const [refreshKey, setRefreshKey] = useState(0);
+
+    const fetchData = useCallback(async () => {
+        try {
+            const [fetchedHabits, fetchedCategories] = await Promise.all([
+                HabitService.getAllHabits(),
+                CategoryService.getAllCategories()
+            ]);
+            setHabits(fetchedHabits);
+            setCategories(fetchedCategories);
+        } catch (error) {
+            console.error('Failed to fetch habits data:', error);
+        }
+    }, []);
 
     useFocusEffect(
         useCallback(() => {
-            setRefreshKey(prev => prev + 1);
-        }, [])
+            fetchData();
+        }, [fetchData])
     );
 
-    const activeHabits = useMemo(() => {
-        // refreshKey dependency ensures recalculation
-        const _ = refreshKey; 
-        const active = HABITS.filter(h => !h.deleted_at);
-        // Group by category
-        const groups = active.reduce((acc, habit) => {
-            const category = CATEGORIES.find(c => c.id === habit.category_id);
-            if (!category) return acc;
-            
-            if (!acc[category.name]) {
-                acc[category.name] = {
-                    title: category.name,
-                    category_id: category.id,
-                    habits: []
-                };
-            }
-            acc[category.name].habits.push({
-                ...habit,
-                color: category.color,
-                name: habit.title // Map title to name for UI
-            });
-            return acc;
-        }, {} as Record<string, any>);
+    // Group habits by category
+    const { activeGroups, archivedList } = useMemo(() => {
+        const active: Record<string, any> = {};
+        const archived: any[] = [];
 
-        return Object.values(groups);
-    }, []);
-
-    const archivedHabits = useMemo(() => {
-        const _ = refreshKey;
-        return HABITS.filter(h => h.deleted_at).map(habit => {
-            const category = CATEGORIES.find(c => c.id === habit.category_id);
-            return {
-                ...habit,
-                color: category?.color || '#666',
-                name: habit.title
+        habits.forEach(habit => {
+            const category = categories.find(c => c.id === habit.category_id);
+            const uiHabit = {
+                id: habit.id,
+                name: habit.title,
+                color: category?.color || '#FFF',
+                categoryName: category?.name || 'General',
+                categoryId: category?.id,
+                streak: 0 
             };
+            
+            // TODO: Implement actual archive filtering when/if 'is_archived' logic is fully exposed in UI
+            if (activeTab === 'active' && !habit.is_archived) { 
+                if (!active[uiHabit.categoryName]) {
+                    active[uiHabit.categoryName] = {
+                        title: uiHabit.categoryName,
+                        categoryId: uiHabit.categoryId,
+                        habits: []
+                    };
+                }
+                active[uiHabit.categoryName].habits.push(uiHabit);
+            } else if (activeTab === 'archived' && habit.is_archived) {
+                // Add to archived list
+            }
         });
-    }, []);
+        
+        return {
+            activeGroups: Object.values(active),
+            archivedList: archived 
+        };
+    }, [habits, categories, activeTab]);
 
     return (
         <ScreenWrapper bg="bg-black">
@@ -98,7 +113,10 @@ export default function HabitsScreen() {
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }} className="flex-1">
                 {activeTab === 'active' ? (
                     <View className="p-6">
-                        {activeHabits.map((category: any) => (
+                        {activeGroups.length === 0 ? (
+                            <Text className="text-[#666] text-center font-mono mt-10">No active habits.</Text>
+                        ) : (
+                        activeGroups.map((category: any) => (
                             <View key={category.title} className="mb-8">
                                 {/* Category Header */}
                                 <View className="flex-row items-center justify-between mb-4">
@@ -106,7 +124,7 @@ export default function HabitsScreen() {
                                         {category.title}
                                     </Text>
                                     <TouchableOpacity 
-                                        onPress={() => router.push({ pathname: '/habits/manage', params: { categoryId: category.category_id } })} // category object structure in activeHabits reduce was slightly custom... wait, let me check the reduce logic in step 27.
+                                        onPress={() => router.push({ pathname: '/habits/manage', params: { categoryId: category.categoryId } })}
                                         className="border border-[#39FF14] p-1"
                                     >
                                         <MaterialIcons name="add" size={16} color="#39FF14" />
@@ -137,26 +155,13 @@ export default function HabitsScreen() {
                                     ))}
                                 </View>
                             </View>
-                        ))}
+                        ))
+                        )}
                     </View>
                 ) : (
                     <View className="p-6">
-                         {archivedHabits.map((habit: any) => (
-                            <View 
-                                key={habit.id}
-                                className="flex-row items-center justify-between py-4 border-b border-[#333333]"
-                            >
-                                <View className="flex-row items-center gap-4">
-                                    <View style={{ backgroundColor: habit.color }} className="h-3 w-3 rounded-full opacity-50" />
-                                    <Text className="text-[#666666] text-base font-normal font-mono">
-                                        {habit.name}
-                                    </Text>
-                                </View>
-                                <TouchableOpacity>
-                                     <MaterialIcons name="archive" size={20} color="#666666" />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
+                         <Text className="text-[#666] text-center font-mono mt-10">Archived habits not supported yet.</Text>
+                         {/* Archived list implementation pending schema update */}
                     </View>
                 )}
             </ScrollView>
@@ -172,4 +177,6 @@ export default function HabitsScreen() {
             </View>
         </ScreenWrapper>
     );
-}
+};
+
+export default HabitsScreen;

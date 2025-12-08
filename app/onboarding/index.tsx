@@ -1,15 +1,15 @@
 import { RESET_TIMES } from '@/components/onboarding/constants';
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
-import { database } from '@/db';
-import CategoryModel from '@/db/models/Category';
 import { cn } from '@/lib/utils';
+import { CategoryService } from '@/services/CategoryService';
+import { HabitService } from '@/services/HabitService';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Category, categoryService, habitService } from '../../services';
+import { Category as ApiCategory, categoryService, habitService } from '../../services';
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(1);
@@ -17,7 +17,7 @@ export default function OnboardingScreen() {
   const [resetTime, setResetTime] = useState('midnight');
 
   // Categories State
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   // Step 2 & 3 State
@@ -25,40 +25,41 @@ export default function OnboardingScreen() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedHabits, setGeneratedHabits] = useState<any[]>([]);
 
+  // Step 3 State
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     loadCategories();
   }, []);
 
   const loadCategories = async () => {
     try {
+      // 1. Fetch from API
       const data = await categoryService.getCategories();
       setCategories(data);
 
-      if (database) {
-        await database.write(async () => {
-            if (!database) return;
-            const categoriesCollection = database.get<CategoryModel>('categories');
-            const existingCats = await categoriesCollection.query().fetch();
-            const existingIds = new Set(existingCats.map(c => c.id));
-            
-            const newCats = data.filter(c => !existingIds.has(c.id));
-            
-            if (newCats.length > 0) {
-                const batchOperations = newCats.map(cat => 
-                    categoriesCollection.prepareCreate(record => {
-                        record._raw.id = cat.id;
-                        record.name = cat.name;
-                        record.color = cat.color;
-                    })
-                );
-                await database.batch(...batchOperations);
-                console.log(`Saved ${newCats.length} categories to Local DB`);
-            } else {
-               console.log('Categories already up to date in Local DB');
+      // 2. Sync to Local SQLite DB
+      try {
+        const localCats = await CategoryService.getAllCategories();
+        const existingIds = new Set(localCats.map(c => c.id));
+        const newCats = data.filter(c => !existingIds.has(c.id));
+
+        if (newCats.length > 0) {
+            for (const cat of newCats) {
+                await CategoryService.createCategory({
+                    id: cat.id,
+                    name: cat.name,
+                    color: cat.color,
+                    icon: 'label' 
+                });
             }
-        });
-      } else {
-        console.warn('Skipping local DB save: Database is likely not initialized (NativeModules missing).');
+            console.log(`Saved ${newCats.length} categories to Local DB`);
+        } else {
+            console.log('Categories already up to date in Local DB');
+        }
+      } catch (dbError) {
+          console.error('Failed to sync categories to local DB:', dbError);
+          // Don't block onboarding if local DB fails, but log it
       }
       
     } catch (error) {
@@ -133,6 +134,117 @@ export default function OnboardingScreen() {
 
   const removeHabit = (id: string) => {
       setGeneratedHabits(prev => prev.filter(h => h.id !== id));
+  };
+
+  const handleSaveHabits = async () => {
+      console.log('--- Starting handleSaveHabits ---');
+      setIsSaving(true);
+      try {
+          // Map generated habits to payload format
+          // Need to find categoryId for each category name
+          // Group habits by category first to match payload structure
+          console.log('Grouping habits:', generatedHabits);
+          console.log('Available categories:', JSON.stringify(categories, null, 2));
+          const grouped = generatedHabits.reduce((acc, habit) => {
+              if (!acc[habit.category]) acc[habit.category] = [];
+              acc[habit.category].push(habit);
+              return acc;
+          }, {} as Record<string, any[]>);
+
+          const payloadCategories: { categoryId: string; habits: string[] }[] = [];
+
+          // Helper for fuzzy category matching
+          const findCategory = (catName: string) => {
+              const normalizedInput = catName.toUpperCase();
+              
+              // 1. Try exact match
+              let match = categories.find(c => c.name.toUpperCase() === normalizedInput);
+              if (match) return match;
+
+              // 2. Keyword mapping
+              if (normalizedInput.includes('PHYSICAL') || normalizedInput.includes('HEALTH') || normalizedInput.includes('FITNESS')) {
+                  return categories.find(c => c.name === 'Health & Fitness');
+              }
+              if (normalizedInput.includes('WORK') || normalizedInput.includes('CAREER') || normalizedInput.includes('PROFESSIONAL')) {
+                  return categories.find(c => c.name === 'Work & Career');
+              }
+              if (normalizedInput.includes('DEVELOPMENT') || normalizedInput.includes('LEARNING') || normalizedInput.includes('GROWTH')) {
+                  return categories.find(c => c.name === 'Personal Development');
+              }
+              if (normalizedInput.includes('FINANCE') || normalizedInput.includes('MONEY') || normalizedInput.includes('BUDGET')) {
+                  return categories.find(c => c.name === 'Finance');
+              }
+              if (normalizedInput.includes('SOCIAL') || normalizedInput.includes('RELATIONSHIP') || normalizedInput.includes('FAMILY')) {
+                  return categories.find(c => c.name === 'Social & Relationships');
+              }
+              if (normalizedInput.includes('MINDFULNESS') || normalizedInput.includes('SPIRITUAL') || normalizedInput.includes('MENTAL') || normalizedInput.includes('EMOTIONAL')) {
+                  return categories.find(c => c.name === 'Mindfulness & Spirituality') || categories.find(c => c.name === 'Health & Fitness');
+              }
+               if (normalizedInput.includes('HOBBIES') || normalizedInput.includes('CREATIVITY') || normalizedInput.includes('ART')) {
+                  return categories.find(c => c.name === 'Hobbies & Creativity');
+              }
+              if (normalizedInput.includes('HOME') || normalizedInput.includes('ENVIRONMENT')) {
+                  return categories.find(c => c.name === 'Home & Environment');
+              }
+
+              return undefined;
+          };
+
+          (Object.entries(grouped) as [string, any[]][]).forEach(([catName, habits]) => {
+              const category = findCategory(catName);
+              if (category) {
+                  console.log(`Matched '${catName}' to '${category.name}'`);
+                  payloadCategories.push({
+                      categoryId: category.id,
+                      habits: habits.map(h => h.title)
+                  });
+              } else {
+                  console.warn(`Category not found and no fuzzy match for: ${catName}`);
+              }
+          });
+
+          console.log('Payload constructed:', JSON.stringify(payloadCategories, null, 2));
+
+          if (payloadCategories.length > 0) {
+              console.log('Calling habitService.bulkCreateHabits...');
+              const savedHabits = await habitService.bulkCreateHabits({ categories: payloadCategories });
+              console.log('API Response (savedHabits):', JSON.stringify(savedHabits, null, 2));
+              
+              // Sync to Local DB
+              console.log('Syncing to Local DB...');
+              for (const habit of savedHabits) {
+                  console.log(`Syncing habit: ${habit.title} (${habit.id})`);
+                  // Default values for fields not returned by simple bulk create or map appropriately
+                  await HabitService.createHabit({
+                      id: habit.id,
+                      category_id: habit.categoryId,
+                      title: habit.title,
+                      description: null,
+                      frequency: habit.frequencyJson?.type || 'daily', 
+                      type: 'good',
+                      goal_id: null
+                  });
+              }
+              console.log(`Synced ${savedHabits.length} habits to Local DB`);
+          } else {
+              console.warn('No payload categories created. Check category matching.');
+          }
+          
+          nextStep();
+      } catch (error) {
+          console.error('Failed to save habits:', error);
+          if (error instanceof Error) {
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+          }
+           // Log full error object if possible
+          console.error('Full Error Object:', JSON.stringify(error, null, 2));
+
+          Alert.alert('Error', 'Failed to save habits. Please try again.');
+      } finally {
+          setIsSaving(false);
+          console.log('--- Finished handleSaveHabits ---');
+      }
   };
 
   // --- Step 1: Categories ---
@@ -281,16 +393,11 @@ export default function OnboardingScreen() {
             </ScrollView>
 
             <View className="mt-4 gap-3 bg-black py-4">
-                 <Button label="ACCEPT ALL" onPress={nextStep} />
-                 
-                 <TouchableOpacity 
-                    onPress={generateHabits}
-                    className="h-14 items-center justify-center border border-[#39FF14] active:bg-[#39FF14]/10"
-                 >
-                     <Text className="text-[#39FF14] font-bold uppercase tracking-widest font-mono">
-                         GENERATE MORE
-                     </Text>
-                 </TouchableOpacity>
+                 <Button 
+                    label={isSaving ? "SAVING..." : "SAVE HABITS"} 
+                    onPress={handleSaveHabits} 
+                    disabled={isSaving}
+                 />
             </View>
         </View>
       );

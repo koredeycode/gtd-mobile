@@ -1,8 +1,9 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { BrutalistSwitch } from '@/components/ui/BrutalistSwitch';
+import { UserProfile, userService } from '@/services/user.service';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Modal from 'react-native-modal';
 
@@ -11,6 +12,22 @@ export default function SettingsScreen() {
     const [isSyncModalVisible, setSyncModalVisible] = useState(false);
     const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
     const [deletePassword, setDeletePassword] = useState('');
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadUserProfile();
+        }, [])
+    );
+
+    const loadUserProfile = async () => {
+        try {
+            const profile = await userService.getProfile();
+            setUserProfile(profile);
+        } catch (error) {
+            console.log('Error loading profile:', error);
+        }
+    };
 
     const toggleSyncModal = () => setSyncModalVisible(!isSyncModalVisible);
     const toggleDeleteModal = () => setDeleteModalVisible(!isDeleteModalVisible);
@@ -19,7 +36,33 @@ export default function SettingsScreen() {
         {
             title: 'ACCOUNT',
             data: [
-                { id: 'profile', icon: 'person', label: 'Profile', type: 'link' },
+                // Custom item structure for Profile Card
+                { 
+                    id: 'profile_card', 
+                    type: 'custom',
+                    component: (
+                        <TouchableOpacity 
+                            onPress={() => router.push('/profile')}
+                            className="flex-row items-center p-4 bg-black"
+                        >
+                            <View className="h-16 w-16 rounded-full bg-[#222] items-center justify-center border border-[#333] mr-4">
+                                <Text className="text-white text-2xl font-bold font-jb-bold">
+                                    {userProfile?.firstName?.[0] || userProfile?.email?.[0] || '?'}
+                                </Text>
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-white text-lg font-bold font-jb-bold mb-1">
+                                    {userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'Guest User'}
+                                </Text>
+                                <Text className="text-[#888] text-sm font-mono">
+                                    {userProfile?.email || 'Not logged in'}
+                                </Text>
+                            </View>
+                            <MaterialIcons name="chevron-right" size={24} color="#666" />
+                        </TouchableOpacity>
+                    )
+                },
+                { id: 'profile', icon: 'person', label: 'Edit Profile', type: 'link' },
             ]
         },
         {
@@ -69,7 +112,16 @@ export default function SettingsScreen() {
                         </Text>
                         
                         <View className="border border-[#333333] mx-6">
-                            {section.data.map((item: any, itemIndex) => (
+                            {section.data.map((item: any, itemIndex) => {
+                                if (item.type === 'custom') {
+                                    return (
+                                        <View key={item.id} className={itemIndex !== section.data.length - 1 ? 'border-b border-[#333333]' : ''}>
+                                            {item.component}
+                                        </View>
+                                    );
+                                }
+
+                                return (
                                 <TouchableOpacity 
                                     key={item.id}
                                     activeOpacity={0.7}
@@ -120,7 +172,8 @@ export default function SettingsScreen() {
                                         <MaterialIcons name="chevron-right" size={24} color="#666666" />
                                     )}
                                 </TouchableOpacity>
-                            ))}
+                                );
+                            })}
                         </View>
                     </View>
                 ))}

@@ -1,5 +1,6 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { CATEGORIES, HABITS, LOGS } from '@/constants/mockData';
+import { getDB } from '@/db';
+import { Category, Habit, Log } from '@/db/types';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -12,24 +13,41 @@ export default function HabitDetailScreen() {
     const [period, setPeriod] = useState<'30D' | '6M' | '1Y'>('30D');
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedLog, setSelectedLog] = useState<any>(null);
-    const [refreshKey, setRefreshKey] = useState(0);
+    
+    const [habit, setHabit] = useState<Habit | null>(null);
+    const [category, setCategory] = useState<Category | null>(null);
+    const [logs, setLogs] = useState<Log[]>([]);
+
+    const fetchData = useCallback(async () => {
+        try {
+            const db = await getDB();
+            const habitResult = await db.getAllAsync<Habit>('SELECT * FROM habits WHERE id = ?', [String(id)]);
+            if (habitResult.length > 0) {
+                setHabit(habitResult[0]);
+                const catResult = await db.getAllAsync<Category>('SELECT * FROM categories WHERE id = ?', [habitResult[0].category_id]);
+                if (catResult.length > 0) setCategory(catResult[0]);
+            } else {
+                setHabit(null);
+            }
+
+            const logsResult = await db.getAllAsync<Log>('SELECT * FROM logs WHERE habit_id = ?', [String(id)]);
+            setLogs(logsResult);
+        } catch (error) {
+            console.error('Error fetching habit details:', error);
+        }
+    }, [id]);
 
     useFocusEffect(
         useCallback(() => {
-            setRefreshKey(prev => prev + 1);
-        }, [])
+            fetchData();
+        }, [fetchData])
     );
-
-    const habit = useMemo(() => {
-        const _ = refreshKey;
-        return HABITS.find(h => h.id === id);
-    }, [id, refreshKey]);
-    const category = useMemo(() => CATEGORIES.find(c => c.id === habit?.category_id), [habit]);
     
-    // Get logs for this habit
+    // Get logs for this habit (only done ones for stats/calendar? Original logic filtered l.value)
+    // We'll keep compatibility by filtering here
     const habitLogs = useMemo(() => {
-        return LOGS.filter(l => l.habit_id === id && l.value);
-    }, [id]);
+        return logs.filter(l => l.value);
+    }, [logs]);
 
     // Calculate Date Range Limit based on period
     const rangeLimitDate = useMemo(() => {
@@ -45,6 +63,26 @@ export default function HabitDetailScreen() {
     const stats = useMemo(() => {
         if (!habit) return { streak: 0, completion: 0, total: 0 };
         
+        // Calculate Streak
+        let currentStreak = 0;
+        const today = new Date();
+        let checkDate = new Date(today);
+        let checkDateStr = checkDate.toISOString().split('T')[0];
+        
+        const doneDates = new Set(habitLogs.map(l => l.date));
+        
+        // If not done today, check if done yesterday to sustain streak
+        if (!doneDates.has(checkDateStr)) {
+             checkDate.setDate(checkDate.getDate() - 1);
+             checkDateStr = checkDate.toISOString().split('T')[0];
+        }
+        
+        while (doneDates.has(checkDateStr)) {
+            currentStreak++;
+            checkDate.setDate(checkDate.getDate() - 1);
+            checkDateStr = checkDate.toISOString().split('T')[0];
+        }
+
         // Filter logs within range
         const logsInRange = habitLogs.filter(l => {
             const d = new Date(l.date);
@@ -62,7 +100,7 @@ export default function HabitDetailScreen() {
         const completion = totalDays > 0 ? Math.round((totalDone / totalDays) * 100) : 0;
 
         return {
-            streak: habit.streak || 0,
+            streak: currentStreak,
             completion: Math.min(completion, 100),
             total: totalDone
         };

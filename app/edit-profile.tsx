@@ -1,19 +1,56 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { userService } from '@/services/user.service';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function EditProfileScreen() {
-    const [name, setName] = useState('Alex Mercer');
-    const [email, setEmail] = useState('alex.mercer@gsd.app');
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleSave = () => {
-        // Mock save
-        Alert.alert('Success', 'Profile updated successfully', [
-            { text: 'OK', onPress: () => router.back() }
-        ]);
+    useEffect(() => {
+        loadUserProfile();
+    }, []);
+
+    const loadUserProfile = async () => {
+        try {
+            const profile = await userService.getProfile();
+            setName(`${profile.firstName} ${profile.lastName}`);
+            setEmail(profile.email);
+        } catch (error) {
+            console.error('Error loading profile:', error);
+            Alert.alert('Error', 'Failed to load profile data');
+        }
+    };
+
+    const handleSave = async () => {
+        if (!name.trim()) {
+            Alert.alert('Error', 'Name cannot be empty');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const [firstName, ...lastNameParts] = name.trim().split(' ');
+            const lastName = lastNameParts.join(' ');
+
+            await userService.updateProfile({
+                firstName,
+                lastName: lastName || '',
+            });
+
+            Alert.alert('Success', 'Profile updated successfully', [
+                { text: 'OK', onPress: () => router.back() }
+            ]);
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            Alert.alert('Error', 'Failed to update profile');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -90,7 +127,7 @@ export default function EditProfileScreen() {
                     className="w-full bg-[#39FF14] p-4 items-center active:opacity-90"
                 >
                     <Text className="text-black font-bold font-jb-bold uppercase tracking-widest text-base">
-                        SAVE CHANGES
+                        {loading ? 'SAVING...' : 'SAVE CHANGES'}
                     </Text>
                 </TouchableOpacity>
 

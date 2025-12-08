@@ -1,91 +1,114 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { BrutalistRadarChart } from '@/components/ui/BrutalistRadarChart';
-import { CATEGORIES, HABITS, LOGS, RADAR_DATA } from '@/constants/mockData';
+import { RADAR_DATA } from '@/constants/mockData';
 import { cn } from '@/lib/utils';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Modal from 'react-native-modal';
 import resolveConfig from 'tailwindcss/resolveConfig';
 import tailwindConfig from '../../tailwind.config';
 
 const fullConfig = resolveConfig(tailwindConfig);
-// Safely access colors, falling back if not found.  
-// In a real app, you might have strong typing for your theme.
 // @ts-ignore
 const PRIMARY_COLOR = fullConfig.theme?.extend?.colors?.primary || '#39FF14';
 
-export default function DashboardScreen() {
+import { Category, Habit, Log } from '@/db/types';
+import { CategoryService } from '@/services/CategoryService';
+import { HabitService } from '@/services/HabitService';
+
+const DashboardScreen = () => {
+    // Data State
+    const [habits, setHabits] = useState<Habit[]>([]);
+    const [logs, setLogs] = useState<Log[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+
     // Local state for modal
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedTask, setSelectedTask] = useState<any>(null);
     const [logNote, setLogNote] = useState('');
     const [isDone, setIsDone] = useState(false);
-    const [refreshKey, setRefreshKey] = useState(0);
+    
+    // Derived state for tasks
+    const today = new Date().toISOString().split('T')[0];
 
-    const todayTasks = useMemo(() => {
-        // Refresh dependency
-        const _ = refreshKey;
-        const today = new Date().toISOString().split('T')[0];
-        const activeHabits = HABITS.filter(h => !h.deleted_at);
+    const fetchData = useCallback(async () => {
+        try {
+            const [fetchedHabits, fetchedLogs, fetchedCategories] = await Promise.all([
+                HabitService.getAllHabits(),
+                HabitService.getLogsByDate(today),
+                CategoryService.getAllCategories()
+            ]);
+            setHabits(fetchedHabits);
+            setLogs(fetchedLogs);
+            setCategories(fetchedCategories);
+        } catch (error) {
+            console.error('Failed to fetch dashboard data:', error);
+        }
+    }, [today]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [fetchData])
+    );
+    
+    // Helper to map DB data to UI format
+    const tasks = habits.map(habit => {
+        const category = categories.find(c => c.id === habit.category_id);
+        const log = logs.find(l => l.habit_id === habit.id && !!l.value); // Handle boolean or integer storage
         
-        return activeHabits.map(habit => {
-            const category = CATEGORIES.find(c => c.id === habit.category_id);
-            const isDoneBackend = LOGS.some(l => l.habit_id === habit.id && l.date === today && l.value);
-            
-            // Allow local override if we just saved it (not persisted in mock backend perfectly for this view without refresh, but simple cache works)
-            // Actually, we'll write to LOGS array directly so useMemo recalculating should be enough if we trigger re-render
-            const isDone = isDoneBackend; // Simplified for now as we will update LOGS
-            
-            return {
-                id: habit.id,
-                text: habit.title,
-                categoryName: category?.name,
-                color: category?.color || '#FFF',
-                done: isDone
-            };
-        });
-    }, [refreshKey]); // Recompute when we save a log
+        return {
+            id: habit.id,
+            text: habit.title,
+            categoryName: category?.name || 'General',
+            color: category?.color || '#FFF',
+            done: !!log,
+            currentLog: log
+        };
+    });
 
-    const activeTasks = todayTasks.filter(t => !t.done);
-    const completedTasks = todayTasks.filter(t => t.done);
+    const activeTasks = tasks.filter(t => !t.done);
+    const completedTasks = tasks.filter(t => t.done);
     const sortedTasks = [...activeTasks, ...completedTasks];
 
     const openLogModal = (task: any) => {
         setSelectedTask(task);
         setIsDone(task.done);
-        setLogNote(''); // Reset note or fetch existing if we were supporting editing today's log
+        setLogNote(task.currentLog?.text || '');
         setModalVisible(true);
     };
 
-    const handleSaveLog = () => {
+    const handleSaveLog = async () => {
         if (!selectedTask) return;
 
-        const today = new Date().toISOString().split('T')[0];
-        
-        // Remove existing log for today if any (to support toggle off or update)
-        // In a real DB we would upsert. Here in mock array we filter out then push.
-        const existingLogIndex = LOGS.findIndex(l => l.habit_id === selectedTask.id && l.date === today);
-        if (existingLogIndex > -1) {
-            LOGS.splice(existingLogIndex, 1);
-        }
+        try {
+            const existingLog = selectedTask.currentLog;
 
-        // Add new log if done
-        if (isDone) {
-            LOGS.push({
-                id: `l_${selectedTask.id}_${Date.now()}`,
-                habit_id: selectedTask.id,
-                user_id: 'u1',
-                date: today,
-                value: true,
-                text: logNote.trim() || undefined,
-                updated_at: new Date().toISOString(),
-            });
+            if (isDone) {
+                if (existingLog) {
+                    await HabitService.updateLog(existingLog.id, true, logNote.trim() || null);
+                } else {
+                    await HabitService.createLog({
+                        habit_id: selectedTask.id,
+                        user_id: 'u1', // TODO: Get real user ID
+                        date: today,
+                        value: true,
+                        text: logNote.trim() || null
+                    });
+                }
+            } else {
+                if (existingLog) {
+                    await HabitService.deleteLog(existingLog.id);
+                }
+            }
+            
+            setModalVisible(false);
+            fetchData(); // Refresh data
+        } catch (error) {
+            console.error('Failed to save log:', error);
         }
-        
-        setRefreshKey(prev => prev + 1);
-        setModalVisible(false);
     };
 
     return (
@@ -101,7 +124,7 @@ export default function DashboardScreen() {
             </View>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-                {/* Radar Chart Section */}
+                {/* Radar Chart Section (Keep Mock for now) */}
                 <View className="px-6 mb-8">
                     <View className="border-2 border-primary p-4">
                         <Text className="text-white text-base font-bold font-mono mb-1">Life Radar</Text>
@@ -121,8 +144,16 @@ export default function DashboardScreen() {
                 {/* Today's List */}
                 <View>
                     <Text className="px-6 pb-3 pt-5 text-[22px] font-bold text-white font-mono tracking-tighter">Today</Text>
+                    {habits.length === 0 ? (
+                         <View className="px-6 py-8 items-center bg-[#222] mx-6">
+                            <Text className="text-[#666] font-mono text-center mb-4">No habits yet.</Text>
+                            <TouchableOpacity onPress={() => router.push('/habits/manage')} className="bg-[#333] px-4 py-2 border border-[#666]">
+                                <Text className="text-white font-mono uppercase text-xs">Create First Habit</Text>
+                            </TouchableOpacity>
+                         </View>
+                    ) : (
                     <View className="bg-[#222] gap-[1px]"> 
-                        {sortedTasks.map((item, index) => (
+                        {sortedTasks.map((item) => (
                             <TouchableOpacity 
                                 key={item.id} 
                                 onPress={() => openLogModal(item)}
@@ -149,6 +180,7 @@ export default function DashboardScreen() {
                             </TouchableOpacity>
                         ))}
                     </View>
+                    )}
                 </View>
             </ScrollView>
 
@@ -230,4 +262,6 @@ export default function DashboardScreen() {
             </Modal>
         </ScreenWrapper>
     );
-}
+};
+
+export default DashboardScreen;

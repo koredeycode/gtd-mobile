@@ -8,6 +8,8 @@ import './global.css';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+import { initDatabase } from '@/db';
+
 export const unstable_settings = {
   anchor: '(tabs)',
 };
@@ -25,6 +27,10 @@ export default function RootLayout() {
     'JetBrainsMono-ExtraBold': require('../assets/fonts/JetBrainsMono-ExtraBold.ttf'),
     'JetBrainsMono-Italic': require('../assets/fonts/JetBrainsMono-Italic.ttf'),
   });
+
+  useEffect(() => {
+    initDatabase();
+  }, []);
 
   useEffect(() => {
     if (error) throw error;
@@ -60,6 +66,7 @@ export default function RootLayout() {
         <Stack.Screen name="data/export" options={{ headerShown: false }} />
         <Stack.Screen name="habits/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="habits/manage" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="debug/db" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="light" />
     </ThemeProvider>

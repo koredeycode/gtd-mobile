@@ -1,7 +1,9 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { UserProfile, userService } from '@/services/user.service';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const STATS = [
@@ -12,11 +14,30 @@ const STATS = [
 ];
 
 export default function ProfileScreen() {
+    const [user, setUser] = useState<UserProfile | null>(null);
+
+    useEffect(() => {
+        loadUserProfile();
+    }, []);
+
+    const loadUserProfile = async () => {
+        try {
+            const profile = await userService.getProfile();
+            setUser(profile);
+        } catch (error) {
+            console.error('Error loading profile:', error);
+        }
+    };
     
     const handleLogout = async () => {
         try {
             await SecureStore.deleteItemAsync('auth_token');
             await SecureStore.deleteItemAsync('hasOnboarded'); // Optional: clear onboarding for testing
+             
+            // Clear local database
+            const { clearDatabase } = await import('@/db');
+            await clearDatabase();
+
             router.replace('/auth/login');
         } catch (error) {
             console.error('Error logging out:', error);
@@ -43,8 +64,12 @@ export default function ProfileScreen() {
                      <MaterialIcons name="person" size={80} color="white" />
                 </View>
                 
-                <Text className="text-white text-2xl font-bold font-jb-bold mb-1">Alex Mercer</Text>
-                <Text className="text-[#888888] text-sm font-mono mb-8">alex.mercer@gsd.app</Text>
+                <Text className="text-white text-2xl font-bold font-jb-bold mb-1">
+                    {user ? `${user.firstName} ${user.lastName}` : 'Loading...'}
+                </Text>
+                <Text className="text-[#888888] text-sm font-mono mb-8">
+                    {user?.email || '...'}
+                </Text>
 
                 {/* Stats Grid */}
                 <View className="flex-row flex-wrap justify-between w-full mb-8">
@@ -66,6 +91,18 @@ export default function ProfileScreen() {
                         EDIT PROFILE
                     </Text>
                  </TouchableOpacity>
+
+                {/* Logout Button */}
+                {/* Debug DB Button (Temp) */}
+                 <TouchableOpacity 
+                    onPress={() => router.push('/debug/db')}
+                    className="w-full h-14 border border-[#888] flex-row items-center justify-center space-x-2 mb-4"
+                >
+                    <MaterialIcons name="storage" size={20} color="#888" />
+                    <Text className="text-[#888] text-base font-bold uppercase tracking-wider font-jb-bold">
+                        DEBUG DB
+                    </Text>
+                </TouchableOpacity>
 
                 {/* Logout Button */}
                  <TouchableOpacity 

@@ -1,13 +1,29 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
+import { userService } from '@/services/user.service';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function FeedbackScreen() {
     const [feedback, setFeedback] = useState('');
     const [email, setEmail] = useState('');
     const [sending, setSending] = useState(false);
+
+    useEffect(() => {
+        loadUserProfile();
+    }, []);
+
+    const loadUserProfile = async () => {
+        try {
+            const profile = await userService.getProfile();
+            if (profile?.email) {
+                setEmail(profile.email);
+            }
+        } catch (error) {
+            console.log('Error loading profile for feedback:', error);
+        }
+    };
 
     const handleSend = async () => {
         if (!feedback.trim()) {

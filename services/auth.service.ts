@@ -41,6 +41,7 @@ export const authService = {
   async logout(): Promise<void> {
     await SecureStore.deleteItemAsync('access_token');
     await SecureStore.deleteItemAsync('user_id');
+    await SecureStore.deleteItemAsync('user_profile');
   },
 
   async handleAuthResponse(response: AuthResponse): Promise<void> {
