@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 
 // Define the base URL from environment variables
-const BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000'; // Fallback for dev
+const BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000/api'; // Fallback for dev
 
 interface ApiRequestOptions extends RequestInit {
   requiresAuth?: boolean;

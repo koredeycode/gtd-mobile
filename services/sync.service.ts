@@ -42,11 +42,11 @@ export interface SyncResponse {
 
 export const syncService = {
   async pushData(payload: PushPayload): Promise<SyncResponse> {
-    return await api.post<SyncResponse>('/api/v1/sync/push', payload);
+    return await api.post<SyncResponse>('/sync/push', payload);
   },
 
   async pullData(payload: PullPayload): Promise<SyncResponse> {
-    return await api.post<SyncResponse>('/api/v1/sync/pull', payload);
+    return await api.post<SyncResponse>('/sync/pull', payload);
   },
 
   async syncCategories(): Promise<void> {
