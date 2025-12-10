@@ -131,7 +131,9 @@ export const syncService = {
       // Process Logs
       if (changes.logs.created.length > 0 || changes.logs.updated.length > 0) {
           const logsToSave = [...changes.logs.created, ...changes.logs.updated];
+        
           for (const log of logsToSave) {
+            console.log({log})
                const habitId = log.habit_id || log.habitId;
                const userId = log.user_id || log.userId;
                const createdAt = log.created_at || log.createdAt;
@@ -142,13 +144,15 @@ export const syncService = {
                     continue;
                }
 
+
+
                const logData = {
                    id: log.id,
                    habit_id: habitId,
                    user_id: userId,
                    date: log.date,
-                   value: log.value ? true : false,
-                   text: log.text || null,
+                   value: log.value,
+                   text: log.text,
                    sync_status: 'synced',
                    created_at: new Date(createdAt || Date.now()).getTime(),
                    updated_at: new Date(updatedAt || Date.now()).getTime()

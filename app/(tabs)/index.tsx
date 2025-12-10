@@ -1,5 +1,5 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
-import { BrutalistRadarChart } from '@/components/ui/BrutalistRadarChart';
+import { RadarChart } from '@/components/ui/RadarChart';
 import { RADAR_DATA } from '@/constants/mockData';
 import { cn } from '@/lib/utils';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -10,14 +10,14 @@ import Modal from 'react-native-modal';
 import resolveConfig from 'tailwindcss/resolveConfig';
 import tailwindConfig from '../../tailwind.config';
 
-const fullConfig = resolveConfig(tailwindConfig);
-// @ts-ignore
-const PRIMARY_COLOR = fullConfig.theme?.extend?.colors?.primary || '#39FF14';
-
 import { Category, Habit, Log } from '@/db/types';
 import { authService } from '@/services';
 import { CategoryService } from '@/services/CategoryService';
 import { HabitService } from '@/services/HabitService';
+
+const fullConfig = resolveConfig(tailwindConfig);
+// @ts-ignore
+const PRIMARY_COLOR = fullConfig.theme?.extend?.colors?.primary || '#39FF14';
 
 const DashboardScreen = () => {
     // Data State
@@ -42,37 +42,63 @@ const DashboardScreen = () => {
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 6);
             
-            const [fetchedHabits, fetchedLogs, fetchedCategories, weekLogs] = await Promise.all([
+            const [fetchedHabits, fetchedLogs, fetchedCategories, allLogs] = await Promise.all([
                 HabitService.getAllHabits(),
                 HabitService.getLogsByDate(today),
                 CategoryService.getAllCategories(),
-                HabitService.getLogsByDateRange(startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0])
+                HabitService.getAllLogs()
             ]);
-            
-            setHabits(fetchedHabits);
-            setLogs(fetchedLogs);
-            setCategories(fetchedCategories);
 
             // Calculate Radar Data
             const scores: number[] = [];
             const labelsWithScores: string[] = [];
+            const colors: string[] = [];
 
             fetchedCategories.forEach(userCat => {
                 let score = 0;
                 
                 const catHabits = fetchedHabits.filter(h => h.category_id === userCat.id);
+
                 if (catHabits.length > 0) {
-                    const catLogs = weekLogs.filter(l => {
+                    // All-Time calculation
+                    const catLogs = allLogs.filter(l => {
                         const habit = fetchedHabits.find(h => h.id === l.habit_id);
                         return habit?.category_id === userCat.id && l.value;
                     });
-                    const maxLogs = catHabits.length * 7;
-                    score = Math.round((catLogs.length / maxLogs) * 100);
-                    score = Math.min(score, 100);
-                }
+                    
+                    // Calculate max possible logs (sum of days since creation for each habit)
+                    let totalPossible = 0;
+                    const now = new Date();
+                    
+                    catHabits.forEach(h => {
+                         const created = new Date(h.created_at);
+                         let startTime = created.getTime();
+                         
+                         // Find earliest log for this habit to account for historical data
+                         // imported or synced before the habit's local creation date
+                         const habitLogs = catLogs.filter(l => l.habit_id === h.id);
+                         if (habitLogs.length > 0) {
+                             const earliestLogTime = habitLogs.reduce((min, log) => {
+                                 const logTime = new Date(log.date).getTime();
+                                 return logTime < min ? logTime : min;
+                             }, startTime);
+                             startTime = Math.min(startTime, earliestLogTime); // Ensure we take the earlier of creation or first log
+                         }
+
+                         const diffTime = Math.abs(now.getTime() - startTime);
+                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                         totalPossible += Math.max(1, diffDays); // At least 1 day
+                    });
+
+                    if (totalPossible > 0) {
+                        score = Math.round((catLogs.length / totalPossible) * 100);
+                        score = Math.min(score, 100);
+                    }
+                }  
                 
                 scores.push(score);
-                labelsWithScores.push(`${userCat.name} ${score}`);
+                labelsWithScores.push(userCat.name);
+                colors.push(userCat.color);
             });
 
             // If no categories, maybe default? 
@@ -80,8 +106,13 @@ const DashboardScreen = () => {
 
             setRadarData({
                 labels: labelsWithScores,
-                data: scores
+                data: scores,
+                colors: colors
             });
+
+            setHabits(fetchedHabits);
+            setLogs(fetchedLogs);
+            setCategories(fetchedCategories);
 
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
@@ -187,19 +218,52 @@ const DashboardScreen = () => {
             </View>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-                {/* Radar Chart Section */}
+                {/* Radar Chart & Legend Section */}
                 <View className="px-6 mb-8">
                     <View className="border-2 border-primary p-4">
-                        <Text className="text-white text-base font-bold font-mono mb-1">Life Radar</Text>
-                        <Text className="text-primary opacity-70 text-sm font-mono mb-4">Last 7 Days</Text>
+                        <View className="flex-row items-center justify-between mb-6">
+                            <Text className="text-white text-base font-bold font-mono">Life Radar</Text>
+                            <View className="bg-[#39FF14] px-2 py-1">
+                                <Text className="text-black text-xs font-bold font-mono uppercase">All Time</Text>
+                            </View>
+                        </View>
                         
-                        <View className="items-center justify-center py-6">
-                            <BrutalistRadarChart 
-                                data={radarData.data} 
-                                labels={radarData.labels}
-                                size={250}
-                                color={PRIMARY_COLOR}
-                            />
+                        <View className="flex-row items-center justify-between">
+                            {/* Chart - Left */}
+                            <View className="items-center justify-center -ml-6">
+                                <RadarChart 
+                                    data={radarData.data} 
+                                    labels={[]} // Hide labels on chart
+                                    size={240} // Increased size
+                                    color={PRIMARY_COLOR}
+                                />
+                            </View>
+
+                            {/* Legend - Right */}
+                            <View className="flex-1 ml-2 gap-2">
+                                {radarData.labels.map((label: string, index: number) => {
+                                    const score = radarData.data[index] || 0;
+                                    const categoryColor = radarData.colors?.[index] || PRIMARY_COLOR;
+                                    
+                                    return (
+                                        <View key={index} className="flex-row items-center justify-between">
+                                            <Text 
+                                                className="font-mono text-[10px] flex-1 mr-2" 
+                                                numberOfLines={1}
+                                                style={{ color: categoryColor }}
+                                            >
+                                                {label}
+                                            </Text>
+                                            <Text 
+                                                className="font-mono text-[10px] font-bold"
+                                                style={{ color: categoryColor }}
+                                            >
+                                                {score}%
+                                            </Text>
+                                        </View>
+                                    );
+                                })}
+                            </View>
                         </View>
                     </View>
                 </View>

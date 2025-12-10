@@ -90,7 +90,7 @@ const HabitsScreen = () => {
                         activeTab === 'active' ? 'border-[#39FF14]' : 'border-transparent'
                     }`}
                 >
-                    <Text className={`text-sm font-bold uppercase tracking-widest font-jb-bold ${
+                    <Text className={`text-sm font-bold uppercase font-jb-bold ${
                         activeTab === 'active' ? 'text-[#39FF14]' : 'text-[#666666]'
                     }`}>
                         ACTIVE
@@ -102,7 +102,7 @@ const HabitsScreen = () => {
                         activeTab === 'archived' ? 'border-[#39FF14]' : 'border-transparent'
                     }`}
                 >
-                    <Text className={`text-sm font-bold uppercase tracking-widest font-jb-bold ${
+                    <Text className={`text-sm font-bold uppercase font-jb-bold ${
                         activeTab === 'archived' ? 'text-[#39FF14]' : 'text-[#666666]'
                     }`}>
                         ARCHIVED
