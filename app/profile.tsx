@@ -39,41 +39,14 @@ export default function ProfileScreen() {
 
     const loadStats = async () => {
         try {
-             // In a real app, these might be pre-calculated in DB or backend
-             const allLogs = await HabitService.getAllLogs();
-             const allHabits = await HabitService.getAllHabits();
-             
-             // 1. Completions
-             const completions = allLogs.filter(l => l.value).length;
-
-             // 2. Rate (Last 30 days)
-             // Approx: (Completions in last 30 days) / (Active Habits * 30)
-             // Simple fallback: Global completion rate = logs / (habits * days since creation)?
-             // Let's stick to last 30 days simple math
-             const thirtyDaysAgo = new Date();
-             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-             const sub30Logs = allLogs.filter(l => new Date(l.date) >= thirtyDaysAgo && l.value);
-             const activeHabits = allHabits.filter(h => !h.is_archived);
-             
-             let rate = 0;
-             if (activeHabits.length > 0) {
-                 const possible = activeHabits.length * 30;
-                 rate = Math.round((sub30Logs.length / possible) * 100);
-             }
-
-             // 3. Streaks (Basic calc)
-             // We can just query the streak from memory if we had it, but here we might need to iterate
-             // For now, let's keep "Current Streak" as 0 or mock until we have a shared streak calc service
-             // Or... sum of current streaks?
-             // Let's settle for "Completions" and "Rate" being real.
-             // "Longest Streak" -> We can find the longest streak in logs?
-             // That requires complex logic. We'll leave streaks as placeholders or 0 for now to avoid perf hit on main thread.
+             // Fetch real stats from service
+             const globalStats = await HabitService.getGlobalStats();
              
              setStats([
-                { label: 'Current Streak', value: '-' }, // Complex to calc on fly
-                { label: 'Completions', value: completions.toString() },
-                { label: 'Rate', value: `${rate}%` },
-                { label: 'Longest Streak', value: '-' }, // Complex to calc on fly
+                { label: 'Current Streak', value: globalStats.currentStreak.toString() },
+                { label: 'Completions', value: globalStats.totalCompletions.toString() },
+                { label: 'Rate', value: `${globalStats.completionRate}%` },
+                { label: 'Longest Streak', value: globalStats.longestStreak.toString() },
             ]);
 
         } catch (e) {

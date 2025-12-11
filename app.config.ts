@@ -7,6 +7,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
+  owner: 'korecodes',
   scheme: 'gtdmobile',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
@@ -73,6 +74,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     reactCompiler: true,
   },
   extra: {
+    eas: {
+      projectId: 'dddf36ee-6717-4081-bf0d-d568c30781f5',
+    },
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
   },
 });

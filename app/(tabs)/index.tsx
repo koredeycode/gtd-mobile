@@ -42,12 +42,39 @@ const DashboardScreen = () => {
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 6);
             
-            const [fetchedHabits, fetchedLogs, fetchedCategories, allLogs] = await Promise.all([
-                HabitService.getAllHabits(),
-                HabitService.getLogsByDate(today),
-                CategoryService.getAllCategories(),
-                HabitService.getAllLogs()
-            ]);
+            console.log('Fetching dashboard data...');
+            let fetchedHabits: Habit[] = [];
+            let fetchedLogs: Log[] = [];
+            let fetchedCategories: Category[] = [];
+            let allLogs: Log[] = [];
+
+            try {
+                fetchedHabits = await HabitService.getAllHabits();
+                console.log('Fetched habits:', fetchedHabits.length);
+            } catch (e) {
+                console.error('Failed to fetch habits:', e);
+            }
+
+            try {
+                fetchedLogs = await HabitService.getLogsByDate(today);
+                console.log('Fetched today logs:', fetchedLogs.length);
+            } catch (e) {
+                console.error('Failed to fetch today logs:', e);
+            }
+
+            try {
+                fetchedCategories = await CategoryService.getAllCategories();
+                console.log('Fetched categories:', fetchedCategories.length);
+            } catch (e) {
+                console.error('Failed to fetch categories:', e);
+            }
+
+            try {
+                allLogs = await HabitService.getAllLogs();
+                console.log('Fetched all logs:', allLogs.length);
+            } catch (e) {
+                console.error('Failed to fetch all logs:', e);
+            }
 
             // Calculate Radar Data
             const scores: number[] = [];
@@ -115,7 +142,7 @@ const DashboardScreen = () => {
             setCategories(fetchedCategories);
 
         } catch (error) {
-            console.error('Failed to fetch dashboard data:', error);
+            console.error('Failed to fetch dashboard data (general):', error);
         }
     }, [today]);
 

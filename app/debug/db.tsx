@@ -14,8 +14,8 @@ const DebugDBScreen = () => {
     try {
       // Use raw SQLite connection for debug monitor since we need dynamic table queries
       // and generic getAllAsync which Drizzle doesn't expose directly on the generic instance.
-      const db = await SQLite.openDatabaseAsync('gtd.db');
-      const result = await db.getAllAsync(`SELECT * FROM ${selectedTable} LIMIT 50`);
+      const db = SQLite.openDatabaseSync('gtd.db');
+      const result = db.getAllSync(`SELECT * FROM ${selectedTable} LIMIT 50`);
       setData(result);
     } catch (error) {
       console.error('Failed to fetch debug data:', error);

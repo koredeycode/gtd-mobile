@@ -48,7 +48,7 @@ export const initDatabase = async () => {
   // Let's use the `execAsync` on the underlying `sqliteDbInstance` for now to be safe, essentially preserving the original `initDatabase` logic but maybe simplified if we trust Drizzle migrations later.
   
   if (!sqliteDbInstance) {
-      sqliteDbInstance = await SQLite.openDatabaseAsync(dbName);
+      sqliteDbInstance = SQLite.openDatabaseSync(dbName);
   }
 
   await sqliteDbInstance.execAsync(`
@@ -101,7 +101,7 @@ export const clearDatabase = async () => {
     // We can use drizzle to delete everything or raw sql.
     const db = await getDB();
     if (!sqliteDbInstance) {
-        sqliteDbInstance = await SQLite.openDatabaseAsync(dbName);
+        sqliteDbInstance = SQLite.openDatabaseSync(dbName);
     }
     await sqliteDbInstance.execAsync(`
         DELETE FROM logs;

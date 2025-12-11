@@ -126,10 +126,62 @@ export default function HabitDetailScreen() {
             }
         }
 
+        // Calculate Completion Rate
+        const now = new Date();
+        const periodDate = new Date();
+        if (period === '30D') periodDate.setDate(periodDate.getDate() - 30);
+        if (period === '6M') periodDate.setMonth(periodDate.getMonth() - 6);
+        if (period === '1Y') periodDate.setFullYear(periodDate.getFullYear() - 1);
+        
+        // Ensure we don't go before creation date (or earliest log date if imported)
+        const createdAt = new Date(habit.created_at);
+        
+        let earliestDate = createdAt;
+        if (logs.length > 0) {
+            const sorted = [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const firstLogDate = new Date(sorted[0].date);
+            if (firstLogDate < createdAt) {
+                earliestDate = firstLogDate;
+            }
+        }
+
+        const effectiveStartDate = periodDate < earliestDate ? earliestDate : periodDate;
+        
+        // Normalize to midnight to avoid time diff issues
+        effectiveStartDate.setHours(0,0,0,0);
+        const todayDate = new Date();
+        todayDate.setHours(0,0,0,0);
+
+        const diffTime = Math.abs(todayDate.getTime() - effectiveStartDate.getTime());
+        const totalDaysPossible = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+        // Filter logs within this window and ensure unique days
+        const startDateStr = effectiveStartDate.toISOString().split('T')[0];
+        const logsInPeriod = logs.filter(l => l.value && l.date >= startDateStr);
+        
+        // Count unique completed days
+        const uniqueDaysCompleted = new Set(logsInPeriod.map(l => l.date)).size;
+
+        console.log('--- Stats Calculation Debug ---');
+        console.log('Period Selected:', period);
+        console.log('Period Date Limit:', periodDate.toISOString().split('T')[0]);
+        console.log('Habit Connection Date (Created/Imported):', earliestDate.toISOString().split('T')[0]);
+        console.log('Effective Start Date:', effectiveStartDate.toISOString().split('T')[0]);
+        console.log('Total Days Possible:', totalDaysPossible);
+        console.log('Unique Days Completed:', uniqueDaysCompleted);
+        console.log('Calculated Rate:', totalDaysPossible > 0 ? (uniqueDaysCompleted / totalDaysPossible) * 100 : 0);
+        console.log('-------------------------------');
+
+
+
+        const completionRate = totalDaysPossible > 0 
+            ? Math.round((uniqueDaysCompleted / totalDaysPossible) * 100)
+            : 0;
+
         return {
             streak: currentStreak,
-            completion: Math.round((logs.filter(l => l.value).length / 30) * 100), // Mock calculation
-            total: logs.length
+            completion: completionRate,
+            total: uniqueDaysCompleted
         };
     }, [habit, logs, period]);
 
