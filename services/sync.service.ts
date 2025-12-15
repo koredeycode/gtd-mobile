@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import * as Drizzle from 'drizzle-orm';
 import { api } from '../api/client';
 import { getDB } from '../db';
 import * as schema from '../db/schema';
@@ -176,10 +176,10 @@ export const syncService = {
 
       // Handle deletions
       if (changes.habits.deleted.length > 0) {
-          await db.delete(schema.habits).where(inArray(schema.habits.id, changes.habits.deleted));
+          await db.delete(schema.habits).where(Drizzle.inArray(schema.habits.id, changes.habits.deleted));
       }
       if (changes.logs.deleted.length > 0) {
-          await db.delete(schema.logs).where(inArray(schema.logs.id, changes.logs.deleted));
+          await db.delete(schema.logs).where(Drizzle.inArray(schema.logs.id, changes.logs.deleted));
       }
 
       // Store new timestamp?
@@ -195,10 +195,10 @@ export const syncService = {
       const db = await getDB();
       
       // 1. Gather pending changes
-      const createdHabits = await db.select().from(schema.habits).where(eq(schema.habits.sync_status, 'created'));
+      const createdHabits = await db.select().from(schema.habits).where(Drizzle.eq(schema.habits.sync_status, 'created'));
       // const updatedHabits = await db.select().from(schema.habits).where(eq(schema.habits.syncStatus, 'updated'));
-      const createdLogs = await db.select().from(schema.logs).where(eq(schema.logs.sync_status, 'created'));
-      const updatedLogs = await db.select().from(schema.logs).where(eq(schema.logs.sync_status, 'updated'));
+      const createdLogs = await db.select().from(schema.logs).where(Drizzle.eq(schema.logs.sync_status, 'created'));
+      const updatedLogs = await db.select().from(schema.logs).where(Drizzle.eq(schema.logs.sync_status, 'updated'));
 
       // 2. Construct Payload
       if (createdHabits.length === 0 && createdLogs.length === 0 && updatedLogs.length === 0) {
@@ -290,9 +290,9 @@ export const syncService = {
              await db.update(table)
                 .set({ sync_status: 'synced' })
                 .where(
-                    and(
-                        eq(table.id, item.id),
-                        eq(table.updated_at, item.updated_at)
+                    Drizzle.and(
+                        Drizzle.eq(table.id, item.id),
+                        Drizzle.eq(table.updated_at, item.updated_at)
                     )
                 );
           }));
