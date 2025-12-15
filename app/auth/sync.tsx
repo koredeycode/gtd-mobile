@@ -42,8 +42,12 @@ export default function SyncScreen() {
 
         } catch (err: any) {
             console.error('Sync failed:', err);
+            if (err.stack) {
+                console.error('Stack trace:', err.stack);
+            }
             const errorMessage = err instanceof Error ? err.message : String(err);
-            Alert.alert('Sync Error', errorMessage);
+            const stackTrace = err instanceof Error && err.stack ? `\n\n${err.stack}` : '';
+            Alert.alert('Sync Error', errorMessage + stackTrace);
             setError(`Failed to sync data: ${errorMessage}`);
             setStatus('Sync failed');
         }

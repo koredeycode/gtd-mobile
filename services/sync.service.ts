@@ -42,15 +42,24 @@ export interface SyncResponse {
 
 export const syncService = {
   async pushData(payload: PushPayload): Promise<SyncResponse> {
+    if (!api || typeof api.post !== 'function') {
+        throw new Error('API client is not correctly initialized');
+    }
     return await api.post<SyncResponse>('/sync/push', payload);
   },
 
   async pullData(payload: PullPayload): Promise<SyncResponse> {
+    if (!api || typeof api.post !== 'function') {
+        throw new Error('API client is not correctly initialized');
+    }
     return await api.post<SyncResponse>('/sync/pull', payload);
   },
 
   async syncCategories(): Promise<void> {
       const db = await getDB();
+      if (!categoryService || typeof categoryService.getCategories !== 'function') {
+          throw new Error('CategoryService is not correctly initialized');
+      }
       const categories = await categoryService.getCategories();
       
       for (const cat of categories) {
@@ -197,6 +206,9 @@ export const syncService = {
           return;
       }
       
+      if (!authService || typeof authService.getUserId !== 'function') {
+          throw new Error('AuthService is not correctly initialized');
+      }
       const userId = await authService.getUserId();
       if (!userId) {
           console.error('Cannot push changes: No user ID found');
