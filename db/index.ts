@@ -4,54 +4,48 @@ import * as schema from './schema';
 
 export const dbName = 'gtd.db';
 
+// Singleton instances
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 let sqliteDbInstance: SQLite.SQLiteDatabase | null = null;
-let dbPromise: Promise<ReturnType<typeof drizzle>> | null = null;
+let connectionPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-export const getDB = async () => {
-  if (dbInstance) {
-    return dbInstance;
+const _initConnection = async (): Promise<SQLite.SQLiteDatabase> => {
+  if (sqliteDbInstance) {
+    return sqliteDbInstance;
   }
   
-  if (dbPromise) {
-      return dbPromise;
+  // Prevent race conditions by holding a single promise
+  if (!connectionPromise) {
+    connectionPromise = (async () => {
+      const db = await SQLite.openDatabaseAsync(dbName);
+      sqliteDbInstance = db;
+      // Drizzle instance is lightweight, can be recreated or cached.
+      // We cache it to avoid re-creating it 
+      dbInstance = drizzle(db, { schema });
+      return db;
+    })();
   }
 
-  dbPromise = (async () => {
-    if (!sqliteDbInstance) {
-        sqliteDbInstance = await SQLite.openDatabaseAsync(dbName);
-    }
-    dbInstance = drizzle(sqliteDbInstance, { schema });
-    return dbInstance;
-  })();
+  return connectionPromise;
+};
 
-  return dbPromise;
+export const getRawDB = async (): Promise<SQLite.SQLiteDatabase> => {
+  return _initConnection();
+};
+
+export const getDB = async () => {
+  await _initConnection();
+  if (!dbInstance) {
+    // Should not happen if _initConnection does its job, but for safety
+    throw new Error('Database initialized but drizzle instance is missing');
+  }
+  return dbInstance;
 };
 
 export const initDatabase = async () => {
-  const db = await getDB();
-  
-  // Create tables using drizzle-kit or manual SQL if migrations aren't set up yet.
-  // Since we are migrating from manual SQL, existing tables should be there.
-  // But for new installs, we need to ensure tables exist.
-  // For now, we will assume the manual SQL fallback is good for safety, or we can rely on Drizzle's push/migration.
-  // However, `drizzle-orm` doesn't automatically create tables on init without a migration runner.
-  // Given the previous code had manual CREATE TABLE, we should probably keep doing that but maybe with Drizzle's SQL generator or just raw SQL for now to be safe until we full switch to migrations.
-  
-  // Actually, to fully switch to drizzle, we should ideally use migrations. 
-  // But for this task, "switch from sql queries to drizzle orm" might just mean query layer first.
-  // Let's keep the manual table creation for now to ensure we don't break existing setups or new installs, 
-  // but we can use the original SQL or move to Drizzle's migrate.
-  // For simplicity and speed in this session, I will retain the manual table creation logic using raw SQL via the underlying driver if possible, 
-  // OR just assume the user handles migrations via `drizzle-kit push` which is common in Expo.
-  // But `drizzle-kit push` requires CLI access. In the app, we need to run migrations.
-  // Let's use the `execAsync` on the underlying `sqliteDbInstance` for now to be safe, essentially preserving the original `initDatabase` logic but maybe simplified if we trust Drizzle migrations later.
-  
-  if (!sqliteDbInstance) {
-      sqliteDbInstance = SQLite.openDatabaseSync(dbName);
-  }
+  const db = await getRawDB();
 
-  await sqliteDbInstance.execAsync(`
+  await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
 
@@ -98,12 +92,8 @@ export const initDatabase = async () => {
 };
 
 export const clearDatabase = async () => {
-    // We can use drizzle to delete everything or raw sql.
-    const db = await getDB();
-    if (!sqliteDbInstance) {
-        sqliteDbInstance = SQLite.openDatabaseSync(dbName);
-    }
-    await sqliteDbInstance.execAsync(`
+    const db = await getRawDB();
+    await db.execAsync(`
         DELETE FROM logs;
         DELETE FROM habits;
         DELETE FROM categories;

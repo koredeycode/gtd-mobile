@@ -1,5 +1,6 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
+import { getRawDB } from '@/db';
 import { Category } from '@/db/types';
 import { authService } from '@/services';
 import { CategoryService } from '@/services/CategoryService';
@@ -47,8 +48,8 @@ export default function ManageHabitScreen() {
 
     const loadHabit = async (habitId: string) => {
         try {
-            const db = await require('@/db').getDB();
-            const habit = await db.getFirstAsync('SELECT * FROM habits WHERE id = ?', [habitId]);
+            const db = await getRawDB();
+            const habit = await db.getFirstAsync<any>('SELECT * FROM habits WHERE id = ?', [habitId]);
             if (habit) {
                 setExistingHabit(habit);
                 setName(habit.title);
@@ -77,11 +78,11 @@ export default function ManageHabitScreen() {
              // ... existing save logic ...
             if (isEditing) {
                  // Implement Update
-                 const db = await require('@/db').getDB();
+                 const db = await getRawDB();
                  const now = Date.now();
                  await db.runAsync(
                      'UPDATE habits SET title = ?, category_id = ?, updated_at = ?, sync_status = CASE WHEN sync_status = "created" THEN "created" ELSE "updated" END WHERE id = ?',
-                     [name, selectedCategory, now, id]
+                     [name, selectedCategory, now, id as string]
                  );
             } else {
                 const userId = await authService.getUserId();
@@ -118,12 +119,12 @@ export default function ManageHabitScreen() {
                     onPress: async () => {
                         try {
                              if (id) {
-                                 const db = await require('@/db').getDB();
+                                 const db = await getRawDB();
                                  const now = Date.now();
                                  // Soft delete
                                  await db.runAsync(
                                      'UPDATE habits SET is_archived = 1, updated_at = ?, sync_status = CASE WHEN sync_status = "created" THEN "created" ELSE "updated" END WHERE id = ?',
-                                     [now, id]
+                                     [now, id as string]
                                  );
                              }
                              router.navigate('/(tabs)/habits');
