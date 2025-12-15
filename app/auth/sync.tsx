@@ -4,7 +4,7 @@ import { syncService } from '@/services/sync.service';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, View } from 'react-native';
 
 export default function SyncScreen() {
     const [status, setStatus] = useState<string>('Initializing...');
@@ -40,9 +40,11 @@ export default function SyncScreen() {
             setProgress(1.0);
             setHasData(result.hasData);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Sync failed:', err);
-            setError('Failed to sync data. Please try again.');
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            Alert.alert('Sync Error', errorMessage);
+            setError(`Failed to sync data: ${errorMessage}`);
             setStatus('Sync failed');
         }
     };

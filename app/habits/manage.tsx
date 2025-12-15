@@ -5,6 +5,7 @@ import { Category } from '@/db/types';
 import { authService } from '@/services';
 import { CategoryService } from '@/services/CategoryService';
 import { HabitService } from '@/services/HabitService';
+import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -143,14 +144,12 @@ export default function ManageHabitScreen() {
             {/* Header */}
             <View className="flex-row items-center justify-between px-6 pt-6 pb-4 border-b border-[#333333]">
                 <TouchableOpacity onPress={() => router.back()}>
-                    <Text className="text-white font-bold font-jb-bold uppercase tracking-widest text-sm">CANCEL</Text>
+                    <MaterialIcons name="arrow-back-ios" size={24} color="white" />
                 </TouchableOpacity>
                 <Text className="text-white text-lg font-bold tracking-widest uppercase font-jb-bold">
                     {isEditing ? 'EDIT HABIT' : 'CREATE HABIT'}
                 </Text>
-                <TouchableOpacity onPress={handleSave}>
-                    <Text className="text-[#39FF14] font-bold font-jb-bold uppercase tracking-widest text-sm">SAVE</Text>
-                </TouchableOpacity>
+                <View className="w-6" />
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>

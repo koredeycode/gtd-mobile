@@ -39,14 +39,13 @@ export default function Index() {
     return (
         <View className="flex-1 items-center justify-center bg-background">
             <View className="items-center">
-                 {/* Replace with actual Logo Image if available */}
                 <Image 
                     source={require('../assets/images/icon.png')}
                     className="w-32 h-32 mb-4"
                     resizeMode="contain"
                 />
                 <Text className="text-primary text-2xl font-bold tracking-widest font-jb-bold">
-                    GTD MOBILE
+                    GET THINGS DONE
                 </Text>
             </View>
         </View>
