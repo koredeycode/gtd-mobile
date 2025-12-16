@@ -1,11 +1,11 @@
-import { drizzle } from 'drizzle-orm/expo-sqlite';
+import { drizzle, ExpoSQLiteDatabase } from 'drizzle-orm/expo-sqlite';
 import { openDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
 import * as schema from './schema';
 
 export const dbName = 'gtd.db';
 
 // Singleton instances
-let dbInstance: ReturnType<typeof drizzle> | null = null;
+let dbInstance: ExpoSQLiteDatabase<typeof schema> | null = null;
 let sqliteDbInstance: SQLiteDatabase | null = null;
 let connectionPromise: Promise<SQLiteDatabase> | null = null;
 

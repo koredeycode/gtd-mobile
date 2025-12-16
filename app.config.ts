@@ -68,6 +68,29 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         ],
       },
     ],
+    [
+      'react-native-android-widget',
+      {
+        widgets: [
+          {
+            name: 'SmallWidget',
+            label: 'GTD Progress',
+            minWidth: '40dp',
+            minHeight: '40dp',
+            description: 'Your daily GSD progress',
+            previewImage: './assets/images/icon.png',
+          },
+          {
+            name: 'MediumWidget',
+            label: 'GTD Tasks',
+            minWidth: '200dp',
+            minHeight: '100dp',
+            description: 'Your top tasks',
+            previewImage: './assets/images/icon.png',
+          },
+        ],
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,

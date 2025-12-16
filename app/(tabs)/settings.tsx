@@ -100,6 +100,12 @@ export default function SettingsScreen() {
                 { id: 'help', icon: 'help', label: 'Help & FAQ', type: 'link' },
                 { id: 'feedback', icon: 'feedback', label: 'Send Feedback', type: 'link' },
             ]
+        },
+        {
+            title: 'DEBUG',
+            data: [
+                { id: 'widget_preview', icon: 'widgets', label: 'Widget Preview', type: 'link', color: '#FFD700' },
+            ]
         }
     ];
 
@@ -154,6 +160,8 @@ export default function SettingsScreen() {
                                             toggleSyncModal();
                                         } else if (item.id === 'delete_account') {
                                             toggleDeleteModal();
+                                        } else if (item.id === 'widget_preview') {
+                                            router.push('/debug/widget-preview' as any);
                                         }
                                     }}
                                     className={`flex-row items-center justify-between p-4 bg-black ${
