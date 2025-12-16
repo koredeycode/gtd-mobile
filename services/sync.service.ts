@@ -1,4 +1,4 @@
-import * as Drizzle from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { api } from '../api/client';
 import { getDB } from '../db';
 import * as schema from '../db/schema';
@@ -107,7 +107,7 @@ export const syncService = {
                // Handle potential camelCase vs snake_case differences
                const categoryId = habit.category_id || habit.categoryId;
                // snake_case schema expects category_id, so we are good if we map correctly.
-               const frequencyJson = habit.frequency_json || habit.frequencyJson;
+                const frequencyJson = habit.frequency_json;
                const createdAt = habit.created_at || habit.createdAt;
                const updatedAt = habit.updated_at || habit.updatedAt;
 
@@ -121,7 +121,7 @@ export const syncService = {
                    category_id: categoryId,
                    title: habit.title,
                    description: habit.description || null,
-                   frequency: typeof frequencyJson === 'string' ? frequencyJson : JSON.stringify(frequencyJson),
+                    frequency_json: frequencyJson,
                    type: habit.type || 'build',
                    goal_id: habit.goal_id || habit.goalId || null,
                    is_archived: habit.is_archived ? true : false, // ensure boolean
@@ -176,10 +176,10 @@ export const syncService = {
 
       // Handle deletions
       if (changes.habits.deleted.length > 0) {
-          await db.delete(schema.habits).where(Drizzle.inArray(schema.habits.id, changes.habits.deleted));
+          await db.delete(schema.habits).where(inArray(schema.habits.id, changes.habits.deleted));
       }
       if (changes.logs.deleted.length > 0) {
-          await db.delete(schema.logs).where(Drizzle.inArray(schema.logs.id, changes.logs.deleted));
+          await db.delete(schema.logs).where(inArray(schema.logs.id, changes.logs.deleted));
       }
 
       // Store new timestamp?
@@ -195,10 +195,10 @@ export const syncService = {
       const db = await getDB();
       
       // 1. Gather pending changes
-      const createdHabits = await db.select().from(schema.habits).where(Drizzle.eq(schema.habits.sync_status, 'created'));
+      const createdHabits = await db.select().from(schema.habits).where(eq(schema.habits.sync_status, 'created'));
       // const updatedHabits = await db.select().from(schema.habits).where(eq(schema.habits.syncStatus, 'updated'));
-      const createdLogs = await db.select().from(schema.logs).where(Drizzle.eq(schema.logs.sync_status, 'created'));
-      const updatedLogs = await db.select().from(schema.logs).where(Drizzle.eq(schema.logs.sync_status, 'updated'));
+      const createdLogs = await db.select().from(schema.logs).where(eq(schema.logs.sync_status, 'created'));
+      const updatedLogs = await db.select().from(schema.logs).where(eq(schema.logs.sync_status, 'updated'));
 
       // 2. Construct Payload
       if (createdHabits.length === 0 && createdLogs.length === 0 && updatedLogs.length === 0) {
@@ -219,14 +219,7 @@ export const syncService = {
           changes: {
               habits: {
                   created: createdHabits.map(h => {
-                      let frequency = h.frequency;
-                      try {
-                          if (typeof frequency === 'string') {
-                              frequency = JSON.parse(frequency);
-                          }
-                      } catch (e) {
-                          console.error('Failed to parse frequency JSON', e);
-                      }
+                      const frequency = h.frequency_json;
 
                       return {
                         id: h.id,
@@ -290,9 +283,9 @@ export const syncService = {
              await db.update(table)
                 .set({ sync_status: 'synced' })
                 .where(
-                    Drizzle.and(
-                        Drizzle.eq(table.id, item.id),
-                        Drizzle.eq(table.updated_at, item.updated_at)
+                    and(
+                        eq(table.id, item.id),
+                        eq(table.updated_at, item.updated_at)
                     )
                 );
           }));

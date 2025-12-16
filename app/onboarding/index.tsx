@@ -220,7 +220,7 @@ export default function OnboardingScreen() {
                       category_id: habit.categoryId,
                       title: habit.title,
                       description: null,
-                      frequency: habit.frequencyJson?.type || 'daily', 
+                      frequency_json: habit.frequencyJson || { type: 'daily' }, 
                       type: 'good',
                       goal_id: null
                   });

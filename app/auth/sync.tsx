@@ -1,5 +1,6 @@
 import { ScreenWrapper } from '@/components/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
+import { clearDatabase } from '@/db';
 import { syncService } from '@/services/sync.service';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -47,7 +48,10 @@ export default function SyncScreen() {
             }
             const errorMessage = err instanceof Error ? err.message : String(err);
             const stackTrace = err instanceof Error && err.stack ? `\n\n${err.stack}` : '';
-            Alert.alert('Sync Error', errorMessage + stackTrace);
+            // Generic stringify that handles Error objects and other objects
+            const fullError = JSON.stringify(err, Object.getOwnPropertyNames(err), 2);
+            
+            Alert.alert('Sync Error', errorMessage + stackTrace + "\n\nFull Detail:\n" + fullError);
             setError(`Failed to sync data: ${errorMessage}`);
             setStatus('Sync failed');
         }
@@ -94,6 +98,23 @@ export default function SyncScreen() {
                         label="RETRY SYNC" 
                         onPress={startSync}
                         className="mb-4 w-full"
+                    />
+                )}
+                
+                {error && (
+                    <Button 
+                        label="RESET DATABASE (FIX SCHEMA)" 
+                        onPress={async () => {
+                            try {
+                                setStatus('Resetting database...');
+                                await clearDatabase();
+                                setStatus('Database reset. Retrying sync...');
+                                setTimeout(startSync, 1000);
+                            } catch (e) {
+                                Alert.alert('Reset Failed', String(e));
+                            }
+                        }}
+                        className="mb-4 w-full bg-red-500"
                     />
                 )}
 

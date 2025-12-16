@@ -15,7 +15,7 @@ export const habits = sqliteTable('habits', {
   category_id: text('category_id').references(() => categories.id).notNull(),
   title: text('title').notNull(),
   description: text('description'),
-  frequency: text('frequency').notNull(),
+  frequency_json: text('frequency_json', { mode: 'json' }).notNull(),
   type: text('type').notNull(),
   goal_id: text('goal_id'),
   is_archived: integer('is_archived', { mode: 'boolean' }).default(false),

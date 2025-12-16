@@ -1,15 +1,15 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import * as SQLite from 'expo-sqlite';
+import { openDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
 import * as schema from './schema';
 
 export const dbName = 'gtd.db';
 
 // Singleton instances
 let dbInstance: ReturnType<typeof drizzle> | null = null;
-let sqliteDbInstance: SQLite.SQLiteDatabase | null = null;
-let connectionPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+let sqliteDbInstance: SQLiteDatabase | null = null;
+let connectionPromise: Promise<SQLiteDatabase> | null = null;
 
-const _initConnection = async (): Promise<SQLite.SQLiteDatabase> => {
+const _initConnection = async (): Promise<SQLiteDatabase> => {
   if (sqliteDbInstance) {
     return sqliteDbInstance;
   }
@@ -17,7 +17,14 @@ const _initConnection = async (): Promise<SQLite.SQLiteDatabase> => {
   // Prevent race conditions by holding a single promise
   if (!connectionPromise) {
     connectionPromise = (async () => {
-      const db = await SQLite.openDatabaseAsync(dbName);
+      console.log('Beginning DB init...');
+      console.log('openDatabaseAsync type:', typeof openDatabaseAsync);
+      console.log('drizzle type:', typeof drizzle);
+      
+      if (typeof openDatabaseAsync !== 'function') throw new Error('openDatabaseAsync is not a function');
+      if (typeof drizzle !== 'function') throw new Error('drizzle is not a function');
+
+      const db = await openDatabaseAsync(dbName);
       sqliteDbInstance = db;
       // Drizzle instance is lightweight, can be recreated or cached.
       // We cache it to avoid re-creating it 
@@ -29,7 +36,7 @@ const _initConnection = async (): Promise<SQLite.SQLiteDatabase> => {
   return connectionPromise;
 };
 
-export const getRawDB = async (): Promise<SQLite.SQLiteDatabase> => {
+export const getRawDB = async (): Promise<SQLiteDatabase> => {
   return _initConnection();
 };
 
@@ -64,7 +71,7 @@ export const initDatabase = async () => {
       category_id TEXT NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
-      frequency TEXT NOT NULL,
+      frequency_json TEXT NOT NULL,
       type TEXT NOT NULL,
       goal_id TEXT,
       is_archived BOOLEAN DEFAULT 0,
@@ -94,9 +101,10 @@ export const initDatabase = async () => {
 export const clearDatabase = async () => {
     const db = await getRawDB();
     await db.execAsync(`
-        DELETE FROM logs;
-        DELETE FROM habits;
-        DELETE FROM categories;
+        DROP TABLE IF EXISTS logs;
+        DROP TABLE IF EXISTS habits;
+        DROP TABLE IF EXISTS categories;
     `);
-  console.log('Database cleared');
+  console.log('Database cleared (tables dropped). Re-initializing...');
+  await initDatabase();
 };

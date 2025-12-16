@@ -95,7 +95,7 @@ export default function ManageHabitScreen() {
                 await HabitService.createHabit({
                     category_id: selectedCategory || (categories[0]?.id),
                     title: name,
-                    frequency: JSON.stringify({ type: 'daily' }),
+                    frequency_json: { type: 'daily' },
                     type: 'build',
                     description: null,
                     goal_id: null

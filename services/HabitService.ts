@@ -21,7 +21,7 @@ export const HabitService = {
         category_id: habit.category_id,
         title: habit.title,
         description: habit.description || null,
-        frequency: habit.frequency,
+        frequency_json: habit.frequency_json,
         type: habit.type,
         goal_id: habit.goal_id || null,
         is_archived: false,
