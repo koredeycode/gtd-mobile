@@ -450,26 +450,26 @@ export default function OnboardingScreen() {
   return (
     <ScreenWrapper bg="bg-black">
       <View className="flex-1 px-4 pt-8 pb-6">
-          <View className="flex-row items-center justify-between w-full mb-8 relative">
-              {step > 1 ? (
+          <View className="flex-row items-center justify-center w-full mb-8 relative">
+              {step > 1 && (
                   <TouchableOpacity onPress={prevStep} className="absolute left-0 z-10 p-2">
                        <MaterialIcons name="arrow-back-ios" size={24} color="white" />
                   </TouchableOpacity>
-              ) : <View className="w-10" />}
+              )}
 
-              <View className="flex-1 items-center">
-                  <Text className="text-center text-sm font-normal uppercase tracking-widest text-[#E0E0E0] font-mono">
+              <View className="items-center">
+                  <Text numberOfLines={1} className="text-center text-sm font-normal uppercase tracking-widest text-[#E0E0E0] font-mono">
                       STEP {step} OF 4
                   </Text>
               </View>
               
-              {step === 2 ? (
-                  <TouchableOpacity onPress={() => setStep(4)} className="absolute right-0 z-10 p-2">
+              {step === 2 && (
+                  <TouchableOpacity onPress={() => setStep(4)} className="absolute right-0 z-10 p-2 bg-white">
                       <Text className="text-[#39FF14] text-sm font-bold uppercase tracking-widest font-mono">
                           SKIP
                       </Text>
                   </TouchableOpacity>
-              ) : <View className="w-10" />}
+              )}
           </View>
           
           {step === 1 && renderStep1()}
