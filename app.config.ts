@@ -2,18 +2,18 @@ import { ConfigContext, ExpoConfig } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'gtd-mobile',
-  slug: 'gtd-mobile',
+  name: 'Get Things Done',
+  slug: 'gtd',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   owner: 'korecodes',
-  scheme: 'gtdmobile',
+  scheme: 'gtd',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.korecodes.gtdmobile',
+    bundleIdentifier: 'com.korecodes.gtd',
   },
   android: {
     adaptiveIcon: {
@@ -24,7 +24,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
-    package: 'com.korecodes.gtdmobile',
+    package: 'com.korecodes.gtd',
   },
   web: {
     output: 'static',
@@ -78,7 +78,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             minWidth: '40dp',
             minHeight: '40dp',
             description: 'Your daily GSD progress',
-            previewImage: './assets/images/icon.png',
+            previewImage: './assets/images/small-widget.png',
           },
           {
             name: 'MediumWidget',
@@ -86,7 +86,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             minWidth: '200dp',
             minHeight: '100dp',
             description: 'Your top tasks',
-            previewImage: './assets/images/icon.png',
+            previewImage: './assets/images/medium-widget.png',
           },
         ],
       },

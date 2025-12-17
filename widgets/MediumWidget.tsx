@@ -62,54 +62,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerText: {
-    color: '#a3e635', // Lime Green for header text based on image
-    fontSize: 12,
+    color: '#a3e635', // Lime Green
+    fontSize: 13,
     fontFamily: 'JetBrainsMono-Bold',
     letterSpacing: 1,
   },
   checkIcon: {
     color: '#a3e635',
-    fontSize: 12,
-    marginLeft: 4,
+    fontSize: 14,
+    marginLeft: 6,
   },
   listContainer: {
     flex: 1,
-    justifyContent: 'space-around', // Distribute items vertically
+    justifyContent: 'flex-start',
   },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   borderBottom: {
-    // Spacer or border? Image doesn't show dividers clearly but spacing is key
+    // No separator for cleaner look, just spacing
   },
   itemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 8,
+    marginRight: 12,
   },
   checkbox: {
-    width: 18,
-    height: 18,
+    width: 20,
+    height: 20,
     borderWidth: 2,
-    borderColor: '#ffffff',
-    borderRadius: 4,
+    borderColor: '#52525b',
+    borderRadius: 6,
     marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#a3e635', // Green fill
+    backgroundColor: '#a3e635',
     borderColor: '#a3e635',
   },
   checkmark: {
@@ -124,8 +127,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemTitleCompleted: {
-    color: '#71717a', // Dimmed
-    textDecorationLine: 'line-through', // Optional: Strikethrough?
+    color: '#71717a',
+    textDecorationLine: 'line-through',
   },
   itemRight: {
      // Right alignment
@@ -137,7 +140,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: '#71717a',
-    fontSize: 12,
+    fontSize: 13,
     fontStyle: 'italic',
+    marginTop: 8,
   },
 });
