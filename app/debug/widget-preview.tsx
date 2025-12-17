@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { WidgetPreview } from 'react-native-android-widget';
 import { getWidgetData, WidgetData } from '../../services/WidgetService';
 import { MediumWidget } from '../../widgets/MediumWidget';
 import { SmallWidget } from '../../widgets/SmallWidget';
@@ -32,14 +33,24 @@ export default function WidgetPreviewScreen() {
         <View style={styles.section}>
           <Text style={styles.label}>Small Widget (40x40dp usually, ~160x160px)</Text>
           <View style={styles.previewContainerSmall}>
-             <SmallWidget data={data} />
+             <WidgetPreview
+                renderWidget={() => <SmallWidget data={data} />}
+                width={160}
+                height={160}
+                showBorder
+             />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.label}>Medium Widget (200x100dp usually, ~full width)</Text>
           <View style={styles.previewContainerMedium}>
-             <MediumWidget data={data} />
+             <WidgetPreview
+                renderWidget={() => <MediumWidget data={data} />}
+                width={320}
+                height={160}
+                showBorder
+             />
           </View>
         </View>
 
@@ -77,13 +88,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   previewContainerSmall: {
-    width: 170, 
-    height: 170, // Simulating a reasonable pixel size for the widget
-    // No background here, the widget has it
+    // Width and height controlled by WidgetPreview
+    alignItems: 'center',
   },
   previewContainerMedium: {
+    // Width and height controlled by WidgetPreview
+    alignItems: 'center',
     width: '100%',
-    height: 180, // Simulating a reasonable pixel size
   },
   button: {
       backgroundColor: '#333',

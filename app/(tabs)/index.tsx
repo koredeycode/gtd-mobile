@@ -123,9 +123,11 @@ const DashboardScreen = () => {
                     }
                 }  
                 
-                scores.push(score);
-                labelsWithScores.push(userCat.name);
-                colors.push(userCat.color);
+                if (score > 0) {
+                    scores.push(score);
+                    labelsWithScores.push(userCat.name);
+                    colors.push(userCat.color);
+                }
             });
 
             // If no categories, maybe default? 
