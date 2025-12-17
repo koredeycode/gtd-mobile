@@ -7,25 +7,23 @@ import { authService } from '@/services/auth.service';
 
 const checkAuthState = async () => {
     try {
-        // Check if onboarding is complete
         const onboarded = await SecureStore.getItemAsync('hasOnboarded');
         const token = await authService.getToken();
 
         // Simulate a small delay for splash effect
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        if (!onboarded) {
-            return '/onboarding';
-        }
-        
         if (token) {
-            return '/(tabs)';
+            if (onboarded) {
+                return '/(tabs)';
+            }
+            return '/onboarding';
         }
 
         return '/auth/register';
     } catch (error) {
         console.error('Error checking auth state:', error);
-        return '/onboarding'; // Default fallback
+        return '/auth/register'; // Default fallback
     }
 };
 

@@ -3,7 +3,7 @@ import { ConfigContext, ExpoConfig } from 'expo/config';
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Get Things Done',
-  slug: 'gtd',
+  slug: 'gtd-mobile',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
