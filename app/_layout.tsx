@@ -9,6 +9,7 @@ import './global.css';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { initDatabase } from '@/db';
+import { registerForPushNotificationsAsync } from '@/services/NotificationService';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -30,6 +31,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     initDatabase();
+    registerForPushNotificationsAsync();
   }, []);
 
   useEffect(() => {

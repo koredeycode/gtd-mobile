@@ -34,6 +34,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     [
+      'expo-notifications',
+      {
+        icon: './assets/images/icon.png',
+        color: '#ffffff',
+      },
+    ],
+    [
       'expo-splash-screen',
       {
         image: './assets/images/icon.png',
